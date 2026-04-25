@@ -17,6 +17,4 @@ data class ChildProfile(
     val currentLevel: Int = 1,
     @SerialName("created_at")
     val createdAt: String? = null
-
-
 )

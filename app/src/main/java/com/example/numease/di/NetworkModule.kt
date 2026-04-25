@@ -15,7 +15,9 @@ import io.github.jan.supabase.gotrue.SettingsSessionManager
 import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.serializer.KotlinXSerializer
 import io.github.jan.supabase.storage.Storage
+import kotlinx.serialization.json.Json
 
 import javax.inject.Singleton
 
@@ -40,6 +42,11 @@ object NetworkModule {
             }
             install(Postgrest)
             install(Storage)
+            defaultSerializer = KotlinXSerializer(Json {
+                ignoreUnknownKeys = true // Bỏ qua các key không có trong Data Class
+                explicitNulls = false    // Không bắt lỗi nếu JSON thiếu key null
+            })
+
         }
     }
 

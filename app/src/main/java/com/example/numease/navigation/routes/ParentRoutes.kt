@@ -19,3 +19,13 @@ data class AddEditChildRoute(val childId: String? = null)
 // Màn hình Thống kê chi tiết của 1 bé cụ thể
 @Serializable
 data class ChildStatsRoute(val childId: String)
+
+@Serializable
+object ChildSelectionStatsRoute
+
+@Serializable
+data class DetailedStatsMenuRoute(val childId: String, val categoryId: Int)
+
+// Thêm Route này cùng với DetailedStatsMenuRoute
+@Serializable
+data class ChartViewerRoute(val childId: String, val categoryId: Int, val chartType: String)

@@ -1,7 +1,9 @@
 package com.example.numease.data.model
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonClassDiscriminator
 
 @Serializable
 data class Instruction(
@@ -9,6 +11,9 @@ data class Instruction(
     @SerialName("audio_url") val audioUrl: String? = null
 )
 
+
+@OptIn(ExperimentalSerializationApi::class)
+@JsonClassDiscriminator("type")
 @Serializable
 sealed class ExerciseContent
 

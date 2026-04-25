@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.numease.LocalSoundEnabled
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -32,6 +33,8 @@ fun RewardScreen(
     onBackToMap: () -> Unit // Cả 2 nút hiện tại ta đều cho về Map để bé thấy cửa mới mở
 ) {
     val context = LocalContext.current
+
+    val isSoundEnabled = LocalSoundEnabled.current // Gọi thẳng biến toàn cục
 
     // --- CÀI ĐẶT ÂM THANH CHÚC MỪNG ---
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -45,7 +48,9 @@ fun RewardScreen(
                     2 -> "Giỏi lắm! Bé được hai sao này!"
                     else -> "Bé làm tốt lắm! Cố gắng thêm nhé!"
                 }
-                tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+                if (isSoundEnabled) { // Chỉ phát nếu bé bật âm thanh
+                    tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
+                }
             }
         }
         tts = textToSpeech

@@ -28,8 +28,9 @@ fun ParentHomeScreen(
     viewModel: ParentHomeViewModel = hiltViewModel(),
     userPrefsViewModel: UserPreferencesViewModel = hiltViewModel(),
     onNavigateToManageChildren: () -> Unit,
-    onNavigateToStats: (childId: String) -> Unit,
     onNavigateToStudentWorkspace: () -> Unit,
+    onNavigateToChildSelection: () -> Unit,
+    onNavigateToDirectStats: (childId: String) -> Unit,
     onLogout: () -> Unit
 ) {
     val parentName by viewModel.parentName.collectAsState()
@@ -40,7 +41,6 @@ fun ParentHomeScreen(
 
     // Trạng thái Dialogs
     var showSettings by remember { mutableStateOf(false) }
-    var showChildSelector by remember { mutableStateOf(false) }
 
     // --- DIALOG CÀI ĐẶT DÀNH CHO PHỤ HUYNH ---
     if (showSettings) {
@@ -113,42 +113,6 @@ fun ParentHomeScreen(
     }
 
     // --- DIALOG CHỌN BÉ ĐỂ XEM THỐNG KÊ ---
-    if (showChildSelector) {
-        AlertDialog(
-            onDismissRequest = { showChildSelector = false },
-            confirmButton = {
-                TextButton(onClick = { showChildSelector = false }) { Text("Hủy") }
-            },
-            title = { Text("Xem thống kê của bé nào?", fontWeight = FontWeight.Bold) },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    childrenList.forEach { child ->
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .clickable {
-                                    showChildSelector = false
-                                    child.id?.let { onNavigateToStats(it) }
-                                },
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("👦👧", fontSize = 24.sp)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(child.name, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
-                        }
-                    }
-                }
-            },
-            shape = RoundedCornerShape(24.dp)
-        )
-    }
 
     // ==========================================
     // GIAO DIỆN CHÍNH
@@ -257,13 +221,13 @@ fun ParentHomeScreen(
                     contentColor = Color(0xFFE65100),
                     onClick = {
                         if (childrenList.isEmpty()) {
-                            // Không làm gì hoặc báo lỗi
+                            // Không làm gì (hoặc bạn có thể show Toast nhắc phụ huynh thêm bé)
                         } else if (childrenList.size == 1) {
-                            // Chỉ có 1 bé, chuyển thẳng sang màn Thống kê
-                            childrenList.first().id?.let { onNavigateToStats(it) }
+                            // Chỉ có 1 bé -> Bỏ qua màn hình chọn, bay thẳng vào Thống kê
+                            childrenList.first().id?.let { onNavigateToDirectStats(it) }
                         } else {
-                            // Nhiều bé -> Hiện bảng chọn
-                            showChildSelector = true
+                            // Nhiều bé -> Chuyển sang Route ChildSelectionStatsScreen
+                            onNavigateToChildSelection()
                         }
                     }
                 )
