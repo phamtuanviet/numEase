@@ -3,6 +3,9 @@ package com.example.numease.navigation
 
 import SplashScreen
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -21,6 +24,7 @@ import com.example.numease.navigation.routes.StudentSetupRoute
 import com.example.numease.presentation.ProfileSelectionScreen
 import com.example.numease.presentation.RoleRouterScreen
 import com.example.numease.presentation.UserPreferencesViewModel
+import com.example.numease.presentation.viewmodel.AuthState
 import com.example.numease.presentation.viewmodel.AuthViewModel
 
 @Composable
@@ -29,6 +33,20 @@ fun AppNavigation(
     userPrefsViewModel: UserPreferencesViewModel
 ) {
     val navController = rememberNavController()
+
+    val authState by authViewModel.authState.collectAsState()
+
+    // 2. KÍCH HOẠT CHUYỂN MÀN KHI LOGOUT
+    LaunchedEffect(authState) {
+        if (authState is AuthState.Unauthenticated) {
+            // Bay về màn Đăng nhập và XÓA SẠCH toàn bộ lịch sử (Backstack)
+            navController.navigate(AuthGraph) {
+                // popUpTo(0) có nghĩa là dọn dẹp không chừa lại bất kỳ màn hình cũ nào
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     NavHost(
         navController = navController,
@@ -111,8 +129,23 @@ fun AppNavigation(
 
         // 2. Gọi các nhánh (Graphs) từ các file bên ngoài vào
         authGraph(navController)
-        parentGraph(navController)
-        studentGraph(navController)
+        parentGraph(navController,authViewModel = authViewModel)
+        studentGraph(
+            navController = navController,
+            onNavigateToParentWorkspace = {
+                // Cách 1: Chuyển thẳng sang khu vực của Phụ Huynh
+                navController.navigate(ParentGraph) {
+                    // CỰC KỲ QUAN TRỌNG: Xóa toàn bộ lịch sử của không gian Học sinh
+                    // Để phụ huynh bấm nút Back trên điện thoại không bị quay lại màn hình của con
+                    popUpTo(StudentGraph) {
+                        inclusive = true
+                    }
+                }
+
+
+            },
+            authViewModel = authViewModel
+        )
         adminGraph(navController)
         onboardingGraph(navController)
 

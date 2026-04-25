@@ -109,6 +109,7 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            childSessionManager.clearSession()
             auth.signOut()
             // Không cần set lại state vì observeAuthStatus() sẽ tự bắt được sự kiện NotAuthenticated
         }

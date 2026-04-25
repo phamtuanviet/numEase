@@ -31,7 +31,6 @@ import com.example.numease.presentation.viewmodel.AuthViewModel
 @Composable
 fun ProfileSelectionScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
-    childSessionManager: ChildSessionManager = hiltViewModel(),
     onNavigateToParentMain: () -> Unit, // Callback khi bấm vào thẻ Phụ Huynh
     onNavigateToStudentMain: () -> Unit // Callback khi bấm vào thẻ của Bé
 ) {
@@ -63,7 +62,7 @@ fun ProfileSelectionScreen(
                 Card(
                     onClick = {
                         // Khi Phụ huynh dùng máy -> Xóa Két sắt của bé cho an toàn
-                        childSessionManager.clearSession()
+                        authViewModel.childSessionManager.clearSession()
                         onNavigateToParentMain()
                     },
                     modifier = Modifier.aspectRatio(1f),
@@ -90,7 +89,7 @@ fun ProfileSelectionScreen(
                 Card(
                     onClick = {
                         // Khi chọn Bé -> Lưu vào Két sắt và vào Màn hình Học
-                        childSessionManager.setActiveChild(child)
+                        authViewModel.childSessionManager.setActiveChild(child)
                         onNavigateToStudentMain()
                     },
                     modifier = Modifier.aspectRatio(1f),

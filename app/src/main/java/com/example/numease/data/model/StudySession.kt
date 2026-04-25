@@ -18,5 +18,6 @@ data class StudySession(
     @SerialName("duration_seconds")
     val durationSeconds: Int,
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val level  : Int? = null,
 )

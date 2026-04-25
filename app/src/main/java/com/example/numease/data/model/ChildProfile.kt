@@ -9,8 +9,14 @@ data class ChildProfile(
     @SerialName("account_id") val accountId: String,
     val name: String,
     val age: Int,
+
+    @SerialName("gender")
+    val gender: String,
+
     @SerialName("current_level")
     val currentLevel: Int = 1,
     @SerialName("created_at")
     val createdAt: String? = null
+
+
 )

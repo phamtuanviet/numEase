@@ -8,5 +8,6 @@ data class UserProfile(
     val id: String, // Map trực tiếp với auth.uid() của Supabase
     val role: String, // "PARENT", "STUDENT", "ADMIN"
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val name : String ? = null,
 )

@@ -1,6 +1,7 @@
 package com.example.numease.presentation.onboarding
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,11 +31,13 @@ fun ParentSetupScreen(
 
     // Biến lưu trữ dữ liệu form
     var childName by remember { mutableStateOf("") }
+    var childGender by remember { mutableStateOf("") } // Thêm biến lưu giới tính
     var childAgeInput by remember { mutableStateOf("") }
 
     // Logic Validate (Bắt lỗi) form trực tiếp
     val isAgeValid = childAgeInput.toIntOrNull()?.let { it in 1..18 } ?: false
-    val isFormValid = childName.isNotBlank() && isAgeValid
+    // Form chỉ hợp lệ khi điền đủ Tên, Giới tính và Tuổi hợp lệ
+    val isFormValid = childName.isNotBlank() && childGender.isNotBlank() && isAgeValid
 
     // Lắng nghe trạng thái từ ViewModel
     LaunchedEffect(uiState) {
@@ -95,7 +98,7 @@ fun ParentSetupScreen(
                         .fillMaxWidth()
                         .padding(20.dp)
                 ) {
-                    // Ô nhập Tên
+                    // 1. Ô nhập Tên
                     OutlinedTextField(
                         value = childName,
                         onValueChange = { childName = it },
@@ -110,7 +113,35 @@ fun ParentSetupScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Ô nhập Tuổi
+                    // 2. Chọn Giới tính
+                    Text(
+                        text = "Giới tính",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SelectableGenderCard(
+                            modifier = Modifier.weight(1f),
+                            text = "👦 Bé Trai",
+                            isSelected = childGender == "MALE",
+                            onClick = { childGender = "MALE" }
+                        )
+
+                        SelectableGenderCard(
+                            modifier = Modifier.weight(1f),
+                            text = "👧 Bé Gái",
+                            isSelected = childGender == "FEMALE",
+                            onClick = { childGender = "FEMALE" }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 3. Ô nhập Tuổi
                     OutlinedTextField(
                         value = childAgeInput,
                         onValueChange = { input ->
@@ -143,9 +174,14 @@ fun ParentSetupScreen(
             Button(
                 onClick = {
                     val age = childAgeInput.toIntOrNull() ?: 0
-                    viewModel.createChildProfile(name = childName.trim(), age = age)
+                    // Cập nhật ViewModel: truyền thêm childGender
+                    viewModel.createChildProfile(
+                        name = childName.trim(),
+                        gender = childGender,
+                        age = age
+                    )
                 },
-                enabled = isFormValid, // Nút chỉ sáng lên khi điền đúng định dạng
+                enabled = isFormValid, // Nút chỉ sáng lên khi điền đúng định dạng và đã chọn giới tính
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -167,6 +203,43 @@ fun ParentSetupScreen(
             ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
+        }
+    }
+}
+
+// Component phụ trợ để tái sử dụng cho nút chọn Giới tính
+@Composable
+fun SelectableGenderCard(
+    modifier: Modifier = Modifier,
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    // Đổi màu nền và viền dựa trên trạng thái được chọn hay chưa
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(56.dp), // Chiều cao ngang bằng với OutlinedTextField
+        shape = RoundedCornerShape(12.dp),
+        color = backgroundColor,
+        contentColor = contentColor,
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = borderColor
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                fontSize = 16.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+            )
         }
     }
 }

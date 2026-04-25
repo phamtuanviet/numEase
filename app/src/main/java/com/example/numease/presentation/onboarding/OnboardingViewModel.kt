@@ -42,7 +42,7 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
-    fun createChildProfile(name: String, age: Int) {
+    fun createChildProfile(name: String, age: Int, gender: String) {
         viewModelScope.launch {
             _uiState.value = OnboardingState.Loading
             try {
@@ -52,7 +52,9 @@ class OnboardingViewModel @Inject constructor(
                     accountId = user.id,
                     name = name,
                     age = age,
-                    currentLevel = 1
+                    currentLevel = 1,
+                    gender = gender,
+
                 )
 
                 postgrest["child_profiles"].insert(childData)

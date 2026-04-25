@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.numease.presentation.component.AgeInputStep
+import com.example.numease.presentation.component.GenderInputStep
 import com.example.numease.presentation.component.NameInputStep
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -37,11 +38,12 @@ fun StudentSetupScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Quản lý các bước nhập liệu
+    // Quản lý các bước nhập liệu (Tăng lên thành 3 bước)
     var currentStep by remember { mutableStateOf(1) }
 
     // Dữ liệu thu thập
     var studentName by remember { mutableStateOf("") }
+    var studentGender by remember { mutableStateOf("") } // Thêm state lưu giới tính
 
     // Lắng nghe trạng thái lưu Profile
     LaunchedEffect(uiState) {
@@ -83,11 +85,22 @@ fun StudentSetupScreen(
                             if (studentName.isNotBlank()) currentStep = 2
                         }
                     )
-                    2 -> AgeInputStep(
+                    2 -> GenderInputStep( // Thêm bước 2: Chọn Giới Tính
+                        studentName = studentName,
+                        onGenderSelected = { selectedGender ->
+                            studentGender = selectedGender
+                            currentStep = 3 // Chuyển sang bước chọn tuổi
+                        }
+                    )
+                    3 -> AgeInputStep(    // Bước 3: Chọn Tuổi
                         studentName = studentName,
                         onAgeSelected = { selectedAge ->
-                            // Vừa chọn tuổi xong là gọi API lưu luôn
-                            viewModel.createChildProfile(name = studentName, age = selectedAge)
+                            // Vừa chọn tuổi xong là gọi API lưu luôn (nhớ truyền thêm gender vào ViewModel)
+                            viewModel.createChildProfile(
+                                name = studentName,
+                                gender = studentGender,
+                                age = selectedAge
+                            )
                         }
                     )
                 }

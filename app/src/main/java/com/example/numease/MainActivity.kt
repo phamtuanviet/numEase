@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -18,6 +20,8 @@ import com.example.numease.presentation.UserPreferencesViewModel
 import com.example.numease.presentation.theme.NumEaseTheme
 import com.example.numease.presentation.viewmodel.AuthViewModel
 import dagger.hilt.android.AndroidEntryPoint
+
+val LocalSoundEnabled = compositionLocalOf { true }
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -38,12 +42,17 @@ class MainActivity : ComponentActivity() {
             val userPrefs by userPrefsViewModel.preferences.collectAsState()
 
             NumEaseTheme (
-                darkTheme = userPrefs.isDarkMode,
+                darkTheme = userPrefs.isDarkMode, // Theme đã được xử lý chuẩn ở đây!
             ) {
-                AppNavigation(
-                    authViewModel = authViewModel,
-                    userPrefsViewModel = userPrefsViewModel
-                )
+                // ĐÃ THÊM: Bơm trạng thái âm thanh xuống toàn bộ hệ thống UI
+                CompositionLocalProvider(
+                    LocalSoundEnabled provides userPrefs.isSoundEnabled
+                ) {
+                    AppNavigation(
+                        authViewModel = authViewModel,
+                        userPrefsViewModel = userPrefsViewModel
+                    )
+                }
             }
         }
     }
