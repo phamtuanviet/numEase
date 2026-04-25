@@ -38,3 +38,13 @@ data class AddDragDropQuestionRoute(val categoryId: Int, val categoryCode: Strin
 // Dùng chung cho cả Phép cộng và Phép trừ
 @Serializable
 data class AddCalculationQuestionRoute(val categoryId: Int, val categoryCode: String, val level: Int)
+
+@Serializable
+object ManageParentsRoute
+
+// Màn hình danh sách hồ sơ Học sinh (Dành riêng cho Admin)
+@Serializable
+object ManageChildrenAdminRoute
+
+@Serializable
+data class ChildDetailAdminRoute(val childId: String)

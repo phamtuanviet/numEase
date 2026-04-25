@@ -13,18 +13,25 @@ import com.example.numease.navigation.routes.AddCountingQuestionRoute
 import com.example.numease.navigation.routes.AddDragDropQuestionRoute
 import com.example.numease.navigation.routes.AdminGraph
 import com.example.numease.navigation.routes.AdminHomeRoute
+import com.example.numease.navigation.routes.ChildDetailAdminRoute
+import com.example.numease.navigation.routes.ManageChildrenAdminRoute
 import com.example.numease.navigation.routes.ManageContentRoute
 import com.example.numease.navigation.routes.ManageLevelsRoute
+import com.example.numease.navigation.routes.ManageParentsRoute
 import com.example.numease.navigation.routes.ManageQuestionsRoute
 import com.example.numease.navigation.routes.ManageUsersRoute
 import com.example.numease.presentation.admin.caculation.AddCalculationQuestionScreen
+import com.example.numease.presentation.admin.children.ManageChildrenAdminScreen
+import com.example.numease.presentation.admin.children_detail.ChildDetailAdminScreen
 import com.example.numease.presentation.admin.comparing.AddComparingQuestionScreen
 import com.example.numease.presentation.admin.content.ManageContentScreen
 import com.example.numease.presentation.admin.counting.AddCountingQuestionScreen
 import com.example.numease.presentation.admin.drag_drop.AddDragDropQuestionScreen
 import com.example.numease.presentation.admin.home.AdminHomeScreen
 import com.example.numease.presentation.admin.manage_category.ManageLevelsScreen
+import com.example.numease.presentation.admin.parent.ManageParentsScreen
 import com.example.numease.presentation.admin.question.ManageQuestionsScreen
+import com.example.numease.presentation.admin.user.ManageUsersScreen
 
 fun NavGraphBuilder.adminGraph(navController: NavController) {
 
@@ -204,5 +211,56 @@ fun NavGraphBuilder.adminGraph(navController: NavController) {
                 onSavedSuccess = { navController.popBackStack() }
             )
         }
+
+        composable<ManageUsersRoute> {
+            ManageUsersScreen(
+                onNavigateToHome = {
+                    navController.navigate(AdminHomeRoute) {
+                        popUpTo(AdminHomeRoute) { inclusive = true }
+                    }
+                },
+                onNavigateToContent = {
+                    navController.navigate(ManageContentRoute) {
+                        popUpTo(AdminHomeRoute) // Giữ Home làm gốc
+                    }
+                },
+                onNavigateToParents = {
+                    navController.navigate(ManageParentsRoute)
+                },
+                onNavigateToChildren = {
+                    navController.navigate(ManageChildrenAdminRoute)
+                }
+            )
+        }
+
+        composable<ManageParentsRoute> {
+            ManageParentsScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onChildClick = { childId ->
+                    navController.navigate(ChildDetailAdminRoute(childId))
+                }
+            )
+        }
+        // 3. KHUNG CHỜ CHO MÀN HÌNH HỌC SINH
+        composable<ManageChildrenAdminRoute> {
+            ManageChildrenAdminScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToChildDetail = { childId ->
+                    navController.navigate(ChildDetailAdminRoute(childId))
+                }
+            )
+        }
+
+        composable<ChildDetailAdminRoute> { backStackEntry ->
+            val args = backStackEntry.toRoute<ChildDetailAdminRoute>()
+            ChildDetailAdminScreen(
+                childId = args.childId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+
     }
 }
