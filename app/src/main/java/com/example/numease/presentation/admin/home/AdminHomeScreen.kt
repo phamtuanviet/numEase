@@ -20,16 +20,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.numease.presentation.UserPreferencesViewModel
 import com.example.numease.presentation.component.UserGrowthLineChart
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminHomeScreen(
     viewModel: AdminHomeViewModel = hiltViewModel(),
+    userPrefsViewModel: UserPreferencesViewModel = hiltViewModel(),
     onNavigateToManageContent: () -> Unit,
     onNavigateToManageUsers: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val userPrefs by userPrefsViewModel.preferences.collectAsState()
     val totalExerciseTypes by viewModel.totalExerciseTypes.collectAsState()
     val totalQuestions by viewModel.totalQuestions.collectAsState()
     val totalUsers by viewModel.totalUsers.collectAsState()
@@ -48,14 +51,60 @@ fun AdminHomeScreen(
     if (showSettings) {
         AlertDialog(
             onDismissRequest = { showSettings = false },
-            confirmButton = { TextButton(onClick = { showSettings = false }) { Text("Đóng") } },
-            dismissButton = {
-                TextButton(onClick = { onLogout() }) {
-                    Text("Đăng xuất", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            confirmButton = {
+                Button(
+                    onClick = { showSettings = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Đóng")
                 }
             },
-            title = { Text("Quản trị hệ thống") },
-            text = { Text("Bạn có muốn thực hiện thay đổi cấu hình hệ thống hoặc đăng xuất không?") }
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showSettings = false
+                        onLogout()
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Đăng xuất", fontWeight = FontWeight.Bold)
+                }
+            },
+            title = { Text("Cài đặt", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Chế độ tối")
+                        Switch(
+                            checked = userPrefs.isDarkMode,
+                            onCheckedChange = { userPrefsViewModel.toggleDarkMode(it) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Âm thanh hệ thống")
+                        Switch(
+                            checked = userPrefs.isSoundEnabled,
+                            onCheckedChange = { userPrefsViewModel.toggleSound(it) }
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Divider()
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Nút đưa máy lại cho con học
+
+                }
+            },
+            shape = RoundedCornerShape(24.dp)
         )
     }
 

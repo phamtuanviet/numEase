@@ -10,4 +10,5 @@ data class UserProfile(
     @SerialName("created_at")
     val createdAt: String? = null,
     val name : String ? = null,
+    val email : String ? = null,
 )

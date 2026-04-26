@@ -29,7 +29,10 @@ data class ChildWithParent(
 )
 
 @Serializable
-data class ParentEmail(val email: String)
+data class ParentEmail(
+    // Thêm dấu ? và gán giá trị mặc định
+    val email: String? = ""
+)
 
 @HiltViewModel
 class ManageChildrenAdminViewModel @Inject constructor(

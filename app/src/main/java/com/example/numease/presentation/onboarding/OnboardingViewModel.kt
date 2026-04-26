@@ -30,7 +30,7 @@ class OnboardingViewModel @Inject constructor(
                 // Gọi trực tiếp auth
                 val user = auth.currentUserOrNull() ?: throw Exception("Chưa đăng nhập")
 
-                val userProfile = UserProfile(id = user.id, role = role)
+                val userProfile = UserProfile(id = user.id, role = role,email = user.email)
 
                 // Gọi trực tiếp postgrest
                 postgrest["user_profiles"].upsert(userProfile)
