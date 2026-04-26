@@ -32,8 +32,9 @@ import com.example.numease.presentation.admin.manage_category.ManageLevelsScreen
 import com.example.numease.presentation.admin.parent.ManageParentsScreen
 import com.example.numease.presentation.admin.question.ManageQuestionsScreen
 import com.example.numease.presentation.admin.user.ManageUsersScreen
+import com.example.numease.presentation.viewmodel.AuthViewModel
 
-fun NavGraphBuilder.adminGraph(navController: NavController) {
+fun NavGraphBuilder.adminGraph(navController: NavController,authViewModel: AuthViewModel) {
 
     // Khai báo Graph con dành riêng cho luồng Admin
     navigation<AdminGraph>(startDestination = AdminHomeRoute) {
@@ -50,6 +51,7 @@ fun NavGraphBuilder.adminGraph(navController: NavController) {
                     navController.navigate(ManageUsersRoute)
                 },
                 onLogout = {
+                    authViewModel.logout()
                     // Cũng giống như Phụ huynh, gọi AuthViewModel.logout() ở UI
                     // AppNavigation sẽ tự bắt tín hiệu và đẩy văng về màn đăng nhập
                 }

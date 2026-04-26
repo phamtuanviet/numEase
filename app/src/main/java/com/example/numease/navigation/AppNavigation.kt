@@ -146,7 +146,7 @@ fun AppNavigation(
             },
             authViewModel = authViewModel
         )
-        adminGraph(navController)
+        adminGraph(navController,authViewModel = authViewModel)
         onboardingGraph(navController)
 
 
