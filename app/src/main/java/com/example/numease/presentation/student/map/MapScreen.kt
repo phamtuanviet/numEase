@@ -202,18 +202,29 @@ fun MapNodeItem(node: MapNodeUI, onClick: () -> Unit) {
                         contentColor = MaterialTheme.colorScheme.onPrimary
                     ),
                     shape = CircleShape,
+                    contentPadding = PaddingValues(0.dp), // Xóa padding mặc định của Button
                     modifier = Modifier
                         .size(80.dp)
                         .shadow(6.dp, CircleShape)
                 ) {
-                    Text(node.levelId.toString(), fontSize = 32.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        text = node.levelId.toString(),
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,          // Đảm bảo text chỉ hiển thị trên 1 dòng
+                        softWrap = false       // Tắt tính năng tự động ngắt dòng
+                    )
                 }
                 Row(modifier = Modifier.offset(y = (-10).dp)) {
                     for (i in 1..3) {
                         val alpha = if (i <= node.stars) 1f else 0.3f
-                        Text("⭐", fontSize = 16.sp, modifier = Modifier
-                            .padding(horizontal = 1.dp)
-                            .alpha(alpha))
+                        Text(
+                            text = "⭐",
+                            fontSize = 16.sp,
+                            modifier = Modifier
+                                .padding(horizontal = 1.dp)
+                                .alpha(alpha)
+                        )
                     }
                 }
             }
@@ -231,12 +242,19 @@ fun MapNodeItem(node: MapNodeUI, onClick: () -> Unit) {
                         contentColor = MaterialTheme.colorScheme.onTertiary
                     ),
                     shape = CircleShape,
+                    contentPadding = PaddingValues(0.dp), // Thêm dòng này để xóa viền đệm mặc định
                     modifier = Modifier
                         .size(96.dp)
                         .shadow(12.dp, CircleShape)
                         .zIndex(1f)
                 ) {
-                    Text(node.levelId.toString(), fontSize = 44.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        text = node.levelId.toString(),
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,        // Ép hiển thị 1 dòng
+                        softWrap = false     // Cấm ngắt dòng bậy bạ
+                    )
                 }
             }
         }
