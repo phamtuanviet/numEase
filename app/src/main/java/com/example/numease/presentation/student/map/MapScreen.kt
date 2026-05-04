@@ -1,6 +1,6 @@
 package com.example.numease.presentation.student.map
 
-
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,27 +15,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.numease.presentation.theme.NumEaseTheme
 
 // ==========================================
-// 1. DATA CLASSES (Dành riêng cho UI)
+// 1. DATA CLASSES
 // ==========================================
 enum class NodeState { COMPLETED, CURRENT, LOCKED }
 
 data class MapNodeUI(
-    val levelId: Int,             // Số in trên nút
-    val zoneName: String? = null, // Tên biển báo (nếu có)
-    val state: NodeState,         // Trạng thái (Xanh, Vàng, Xám)
-    val stars: Int = 0            // Số sao đạt được
+    val levelId: Int,
+    val zoneName: String? = null,
+    val state: NodeState,
+    val stars: Int = 0
 )
 
 // ==========================================
-// 2. MÀN HÌNH CHÍNH (Thuần UI, không chứa ViewModel)
+// 2. MÀN HÌNH CHÍNH
 // ==========================================
 @Composable
 fun MapScreen(
@@ -47,23 +48,37 @@ fun MapScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF81D4FA)) // Màu xanh biển nền
+            // Tự động chuyển Nền Xanh Nhạt <-> Nền Đen
+            .background(MaterialTheme.colorScheme.secondaryContainer)
     ) {
-        // A. Bản đồ cuộn ngược (Từ dưới lên trên)
-        // ... (Các code bên ngoài giữ nguyên)
 
+        // A. Đường nối mờ phía sau bản đồ
+        val pathColor = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f)
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+
+            drawLine(
+                color = pathColor,
+                start = androidx.compose.ui.geometry.Offset(x = canvasWidth / 2, y = 0f),
+                end = androidx.compose.ui.geometry.Offset(x = canvasWidth / 2, y = canvasHeight),
+                strokeWidth = 20f,
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(40f, 40f), 0f)
+            )
+        }
+
+        // B. Bản đồ cuộn ngược
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            reverseLayout = true, // Cuộn từ dưới lên
+            reverseLayout = true,
             contentPadding = PaddingValues(top = 120.dp, bottom = 40.dp)
         ) {
             itemsIndexed(nodes) { index, node ->
 
-                val alignment = when (index % 4) {
+                val alignment = when (index % 2) {
                     0 -> Alignment.CenterStart
-                    1, 3 -> Alignment.Center
-                    2 -> Alignment.CenterEnd
-                    else -> Alignment.Center
+                    else -> Alignment.CenterEnd
                 }
 
                 val paddingStart = if (alignment == Alignment.CenterStart) 48.dp else 0.dp
@@ -73,11 +88,8 @@ fun MapScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // 1. KHOẢNG CÁCH NỐI TIẾP VỚI CỬA TRÊN NÓ
-                    // Đặt ở đây để Cửa 1 và Cửa 2 có khoảng cách đều nhau
                     Spacer(modifier = Modifier.height(48.dp))
 
-                    // 2. NÚT BẤM LEVEL (Vẽ trước -> Nằm ở trên trong Column này)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -94,32 +106,33 @@ fun MapScreen(
                         )
                     }
 
-                    // 3. BIỂN BÁO KHU VỰC (Vẽ sau -> Nằm ở dưới Nút trong Column này)
-                    // Nhờ reverseLayout, nó sẽ trở thành "Cổng chào" nằm dưới cùng của Zone
                     if (node.zoneName != null) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
                         Surface(
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = MaterialTheme.colorScheme.surface, // Thẻ tên sẽ đổi màu chuẩn
                             shape = RoundedCornerShape(24.dp),
+                            shadowElevation = 4.dp,
                             modifier = Modifier.padding(bottom = 16.dp)
                         ) {
                             Text(
                                 text = node.zoneName,
-                                color = Color(0xFF0277BD),
+                                color = MaterialTheme.colorScheme.secondary, // Chữ Xanh dương để phân biệt các khu vực
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
-                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                                modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Spacer chừa khoảng trống ở dưới đáy bản đồ ban đầu (nhờ reverse nên nó là item đầu tiên)
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
 
-        // B. Header nổi trên cùng
-        MapHeader(totalStars = totalStars, onBack = onBack)
+        // C. Header nổi trên cùng
+        Box(modifier = Modifier.systemBarsPadding()) {
+            MapHeader(totalStars = totalStars, onBack = onBack)
+        }
     }
 }
 
@@ -139,25 +152,36 @@ fun MapHeader(totalStars: Int, onBack: () -> Unit) {
         IconButton(
             onClick = onBack,
             modifier = Modifier
-                .background(Color.White, CircleShape)
-                .size(48.dp)
+                .background(MaterialTheme.colorScheme.surface, CircleShape)
+                .size(56.dp)
+                .shadow(2.dp, CircleShape)
         ) {
-            Icon(Icons.Default.ArrowBack, "Quay lại", tint = Color.Gray)
+            Icon(
+                Icons.Default.ArrowBack,
+                contentDescription = "Quay lại",
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(28.dp)
+            )
         }
 
-        // Bảng hiện sao
+        // Khối hiển thị Sao
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = Color(0xFFFFF8E1),
+            color = MaterialTheme.colorScheme.tertiaryContainer, // Nền khối sao
             shadowElevation = 4.dp
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Text("$totalStars", fontWeight = FontWeight.ExtraBold, color = Color(0xFFF57F17), fontSize = 20.sp)
+                Text(
+                    text = "$totalStars",
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    fontSize = 24.sp
+                )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("⭐", fontSize = 20.sp)
+                Text("⭐", fontSize = 24.sp)
             }
         }
     }
@@ -173,15 +197,17 @@ fun MapNodeItem(node: MapNodeUI, onClick: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(
                     onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF66BB6A)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary, // Xanh lá
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
                     shape = CircleShape,
                     modifier = Modifier
                         .size(80.dp)
                         .shadow(6.dp, CircleShape)
                 ) {
-                    Text(node.levelId.toString(), fontSize = 32.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text(node.levelId.toString(), fontSize = 32.sp, fontWeight = FontWeight.Black)
                 }
-                // Hiển thị 3 ngôi sao ở dưới nút
                 Row(modifier = Modifier.offset(y = (-10).dp)) {
                     for (i in 1..3) {
                         val alpha = if (i <= node.stars) 1f else 0.3f
@@ -194,32 +220,33 @@ fun MapNodeItem(node: MapNodeUI, onClick: () -> Unit) {
         }
         NodeState.CURRENT -> {
             Box(contentAlignment = Alignment.TopCenter) {
-                // Mascot Gấu
-                Text("🐻", fontSize = 48.sp, modifier = Modifier
-                    .offset(y = (-36).dp)
+                Text("🦊", fontSize = 56.sp, modifier = Modifier
+                    .offset(y = (-40).dp)
                     .zIndex(2f))
-                // Nút Vàng
+
                 Button(
                     onClick = onClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFCA28)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary, // Vàng / Cam
+                        contentColor = MaterialTheme.colorScheme.onTertiary
+                    ),
                     shape = CircleShape,
                     modifier = Modifier
                         .size(96.dp)
-                        .shadow(8.dp, CircleShape)
+                        .shadow(12.dp, CircleShape)
                         .zIndex(1f)
                 ) {
-                    Text(node.levelId.toString(), fontSize = 40.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text(node.levelId.toString(), fontSize = 44.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
         NodeState.LOCKED -> {
-            // Nút Khóa Xám
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(80.dp)
-                    .background(Color.LightGray, CircleShape)
-                    .shadow(2.dp, CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape) // Xám dịu
+                    .shadow(1.dp, CircleShape)
             ) {
                 Text("🔒", fontSize = 32.sp)
             }
@@ -228,12 +255,11 @@ fun MapNodeItem(node: MapNodeUI, onClick: () -> Unit) {
 }
 
 // ==========================================
-// 5. PREVIEW - DÙNG ĐỂ XEM TRƯỚC TRONG ANDROID STUDIO
+// 5. PREVIEW
 // ==========================================
 @Preview(showBackground = true, device = "id:pixel_5")
 @Composable
 fun MapScreenPreview() {
-    // Dữ liệu giả lập để vẽ lên màn hình
     val dummyNodes = listOf(
         MapNodeUI(1, "🌲 Rừng Đếm Số", NodeState.COMPLETED, 3),
         MapNodeUI(2, null, NodeState.COMPLETED, 2),
@@ -243,7 +269,8 @@ fun MapScreenPreview() {
         MapNodeUI(6, null, NodeState.LOCKED, 0)
     )
 
-    MaterialTheme {
+    // Nhớ bọc Preview bằng Theme của bạn để test màu
+    NumEaseTheme(darkTheme = false) {
         MapScreen(
             totalStars = 15,
             nodes = dummyNodes,
@@ -252,3 +279,4 @@ fun MapScreenPreview() {
         )
     }
 }
+

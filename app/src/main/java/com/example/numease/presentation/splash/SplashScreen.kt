@@ -29,6 +29,7 @@ import kotlinx.coroutines.delay
 import com.example.numease.R // Thay bằng package R của bạn
 import com.example.numease.presentation.viewmodel.AuthState
 import com.example.numease.presentation.viewmodel.AuthViewModel
+import androidx.compose.ui.text.font.FontFamily
 
 @Composable
 fun SplashScreen(
@@ -91,13 +92,13 @@ fun SplashScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background), // Hoặc màu chủ đạo của app
+            .background(MaterialTheme.colorScheme.background),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo App (Gắn animation alpha vào đây)
+        // Logo App
         Image(
-            painter = painterResource(id = R.drawable.ic_launcher_foreground), // Thay bằng logo NumEase của bạn
+            painter = painterResource(id = R.drawable.img),
             contentDescription = "NumEase Logo",
             modifier = Modifier
                 .size(150.dp)
@@ -106,22 +107,21 @@ fun SplashScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Tên App
+        // Tên App - Gọi thẳng style displayLarge từ Theme
         Text(
             text = "NumEase",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.displayLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.alpha(alphaAnim)
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // Slogan hoặc Subtitle
+        // Slogan - Gọi thẳng style titleMedium từ Theme
         Text(
             text = "Học Toán Thật Vui",
-            fontSize = 16.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
             modifier = Modifier.alpha(alphaAnim)
         )
     }

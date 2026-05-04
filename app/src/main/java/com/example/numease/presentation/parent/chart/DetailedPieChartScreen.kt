@@ -10,7 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -32,13 +32,14 @@ fun DetailedPieChartScreen(
 ) {
     val sessions by viewModel.sessions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(childId, categoryId) {
         viewModel.loadChartData(childId, categoryId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Biểu đồ Tròn (Tổng hợp)", fontWeight = FontWeight.Bold) },
@@ -55,7 +56,7 @@ fun DetailedPieChartScreen(
             }
         } else if (sessions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = Color.Gray)
+                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -67,17 +68,18 @@ fun DetailedPieChartScreen(
             ) {
                 Text(
                     text = "Tỉ lệ Chính xác (20 bài)",
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F),
+                    color = colorScheme.onBackground,
                     modifier = Modifier.align(Alignment.Start)
                 )
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Khung chứa biểu đồ
-                Surface(
-                    color = Color.White,
+                // Khung chứa biểu đồ sử dụng ElevatedCard của MD3
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
                     shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -92,12 +94,17 @@ fun DetailedPieChartScreen(
 
 @Composable
 fun CustomDonutChart(sessions: List<StudySession>) {
-    // 1. Cộng gộp toàn bộ dữ liệu của 20 bài
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Màu sắc động lấy từ Theme
+    val correctColor = colorScheme.primary
+    val incorrectColor = colorScheme.error
+    val trackColor = colorScheme.surfaceVariant
+
     val totalQuestions = sessions.sumOf { it.totalQuestions }
     val totalCorrect = sessions.sumOf { it.correctAnswers }
     val totalIncorrect = totalQuestions - totalCorrect
 
-    // Ngăn chặn chia cho 0 nếu data rỗng hoặc bị lỗi
     if (totalQuestions == 0) return
 
     val correctRatio = totalCorrect.toFloat() / totalQuestions.toFloat()
@@ -105,10 +112,8 @@ fun CustomDonutChart(sessions: List<StudySession>) {
 
     val correctAngle = correctRatio * 360f
     val incorrectAngle = incorrectRatio * 360f
-
     val accuracyPercentage = (correctRatio * 100).roundToInt()
 
-    // 2. Hiệu ứng chạy vòng tròn vẽ biểu đồ
     var animationProgress by remember { mutableStateOf(0f) }
     LaunchedEffect(sessions) {
         animate(
@@ -119,7 +124,7 @@ fun CustomDonutChart(sessions: List<StudySession>) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -127,68 +132,75 @@ fun CustomDonutChart(sessions: List<StudySession>) {
             modifier = Modifier.size(240.dp),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-                val strokeWidth = 40.dp.toPx() // Độ dày của chiếc nhẫn
-                val size = Size(size.width, size.height)
+            Canvas(modifier = Modifier.fillMaxSize().padding(20.dp)) {
+                val strokeWidth = 36.dp.toPx()
+                val arcSize = Size(size.width, size.height)
 
-                // Vẽ phần SAI (Màu Cam/Đỏ)
-                drawArc(
-                    color = Color(0xFFFF7043),
-                    startAngle = -90f, // Bắt đầu từ đỉnh trên cùng (12h)
-                    sweepAngle = incorrectAngle * animationProgress,
-                    useCenter = false, // false để nó rỗng ruột
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                    size = size
+                // Vẽ vòng nền mờ phía dưới (Track)
+                drawCircle(
+                    color = trackColor,
+                    radius = (size.width / 2),
+                    style = Stroke(width = strokeWidth)
                 )
 
-                // Vẽ phần ĐÚNG (Màu Xanh lá) đè lên nối tiếp
+                // Vẽ phần SAI (Màu Đỏ/Cam)
                 drawArc(
-                    color = Color(0xFF4CAF50),
+                    color = incorrectColor,
+                    startAngle = -90f,
+                    sweepAngle = incorrectAngle * animationProgress,
+                    useCenter = false,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
+                    size = arcSize
+                )
+
+                // Vẽ phần ĐÚNG (Màu Xanh lá) nối tiếp
+                drawArc(
+                    color = correctColor,
                     startAngle = -90f + (incorrectAngle * animationProgress),
                     sweepAngle = correctAngle * animationProgress,
                     useCenter = false,
                     style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
-                    size = size
+                    size = arcSize
                 )
             }
 
-            // Text ở giữa "lõi" chiếc nhẫn
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$accuracyPercentage%",
-                    fontSize = 48.sp,
+                    style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F)
+                    color = colorScheme.onSurface
                 )
                 Text(
                     text = "Chính xác",
-                    fontSize = 14.sp,
-                    color = Color.Gray
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colorScheme.onSurfaceVariant
                 )
             }
         }
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Chú thích (Legend)
+        // Chú thích (Legend) chuẩn MD3
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            LegendItem(color = Color(0xFF4CAF50), title = "Câu đúng", value = "$totalCorrect")
-            LegendItem(color = Color(0xFFFF7043), title = "Câu sai", value = "$totalIncorrect")
+            LegendItem(color = correctColor, title = "Câu đúng", value = "$totalCorrect")
+            LegendItem(color = incorrectColor, title = "Câu sai", value = "$totalIncorrect")
         }
     }
 }
 
 @Composable
 fun LegendItem(color: Color, title: String, value: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(verticalAlignment = Alignment.CenterVertically) {
         Surface(color = color, shape = RoundedCornerShape(4.dp), modifier = Modifier.size(16.dp)) {}
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text(text = title, fontSize = 14.sp, color = Color.Gray)
-            Text(text = value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF37474F))
+            Text(text = title, style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
+            Text(text = value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = colorScheme.onSurface)
         }
     }
 }

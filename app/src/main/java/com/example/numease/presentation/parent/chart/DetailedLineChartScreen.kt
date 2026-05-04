@@ -2,7 +2,6 @@ package com.example.numease.presentation.parent.chart
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -16,9 +15,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.StudySession
 
@@ -32,13 +31,14 @@ fun DetailedLineChartScreen(
 ) {
     val sessions by viewModel.sessions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(childId, categoryId) {
         viewModel.loadChartData(childId, categoryId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Biểu đồ Đường (20 bài)", fontWeight = FontWeight.Bold) },
@@ -55,7 +55,7 @@ fun DetailedLineChartScreen(
             }
         } else if (sessions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = Color.Gray)
+                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -66,24 +66,25 @@ fun DetailedLineChartScreen(
             ) {
                 Text(
                     text = "Sự tiến bộ theo thời gian",
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F)
+                    color = colorScheme.onBackground
                 )
                 Text(
                     text = "Trục dọc: Số câu trả lời đúng",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
 
-                // Khung chứa biểu đồ
-                Surface(
-                    color = Color.White,
+                // Khung chứa biểu đồ sử dụng ElevatedCard của MD3
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
                     shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f) // Chiếm phần lớn màn hình
+                        .weight(1f)
                         .padding(bottom = 24.dp)
                 ) {
                     CustomLineChart20Sessions(sessions = sessions)
@@ -95,14 +96,16 @@ fun DetailedLineChartScreen(
 
 @Composable
 fun CustomLineChart20Sessions(sessions: List<StudySession>) {
-    // 1. Chuẩn bị dữ liệu: Số câu đúng của 20 bài
-    val correctAnswersData = sessions.map { it.correctAnswers.toFloat() }
+    val colorScheme = MaterialTheme.colorScheme
 
-    // Tìm mốc Y cao nhất (ví dụ: Bé làm bài 10 câu thì mốc Y cao nhất là 10)
-    // Nếu max là 0 thì mặc định Y cao nhất là 5 để biểu đồ không bị lỗi chia cho 0
+    // Màu sắc động theo Theme
+    val lineColor = colorScheme.primary
+    val gridColor = colorScheme.outlineVariant
+    val labelTextColor = colorScheme.onSurfaceVariant.toArgb()
+
+    val correctAnswersData = sessions.map { it.correctAnswers.toFloat() }
     val maxQuestions = sessions.maxOfOrNull { it.totalQuestions.toFloat() }?.coerceAtLeast(5f) ?: 5f
 
-    // 2. Hiệu ứng chạy biểu đồ từ trái sang phải
     var animationProgress by remember { mutableStateOf(0f) }
     LaunchedEffect(sessions) {
         animate(
@@ -120,35 +123,34 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 24.dp, bottom = 24.dp) // Chừa chỗ vẽ số trên trục X, Y
+                .padding(start = 32.dp, bottom = 24.dp)
                 .clipToBounds()
         ) {
             val width = size.width
             val height = size.height
 
             // A. VẼ TRỤC Y VÀ LƯỚI NGANG
-            val horizontalLines = 5 // Vẽ 5 đường vạch ngang
+            val horizontalLines = 5
             for (i in 0..horizontalLines) {
                 val y = height - (i.toFloat() / horizontalLines) * height
-
-                // Vẽ số trục Y
                 val labelValue = ((i.toFloat() / horizontalLines) * maxQuestions).toInt()
+
                 drawContext.canvas.nativeCanvas.apply {
                     drawText(
                         labelValue.toString(),
-                        -30f, // Thụt ra ngoài lề trái
-                        y + 10f, // Căn giữa nét chữ
+                        -35f,
+                        y + 10f,
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
-                            textSize = 30f
+                            color = labelTextColor
+                            textSize = 32f
                             textAlign = android.graphics.Paint.Align.RIGHT
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
                         }
                     )
                 }
 
-                // Vẽ đường đứt nét
                 drawLine(
-                    color = Color(0xFFEEEEEE),
+                    color = gridColor,
                     start = Offset(0f, y),
                     end = Offset(width, y),
                     strokeWidth = 2f,
@@ -165,7 +167,6 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
             }
 
             if (points.size > 1) {
-                // Tạo đường cong Cubic Bezier
                 val smoothCurve = Path().apply {
                     moveTo(points.first().x, points.first().y)
                     for (i in 0 until points.size - 1) {
@@ -176,10 +177,8 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
                     }
                 }
 
-                // Cắt theo tiến độ Animation
                 clipRect(right = width * animationProgress) {
-
-                    // Vẽ Gradient bên dưới biểu đồ
+                    // Vẽ Gradient đổ bóng bên dưới
                     val fillPath = Path().apply {
                         addPath(smoothCurve)
                         lineTo(points.last().x, height)
@@ -189,25 +188,25 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
                     drawPath(
                         path = fillPath,
                         brush = Brush.verticalGradient(
-                            colors = listOf(Color(0xFF4CAF50).copy(alpha = 0.3f), Color.Transparent)
+                            colors = listOf(lineColor.copy(alpha = 0.3f), Color.Transparent)
                         )
                     )
 
-                    // Vẽ nét biểu đồ màu Xanh lá
+                    // Vẽ đường kẻ biểu đồ
                     drawPath(
                         path = smoothCurve,
-                        color = Color(0xFF4CAF50),
+                        color = lineColor,
                         style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
 
-                    // Vẽ các nốt chấm trên đường đi
+                    // Vẽ các điểm nút
                     points.forEach { point ->
-                        drawCircle(color = Color.White, radius = 6.dp.toPx(), center = point)
-                        drawCircle(color = Color(0xFF4CAF50), radius = 4.dp.toPx(), center = point)
+                        drawCircle(color = colorScheme.surface, radius = 6.dp.toPx(), center = point)
+                        drawCircle(color = lineColor, radius = 4.dp.toPx(), center = point)
                     }
                 }
             } else if (points.size == 1) {
-                drawCircle(color = Color(0xFF4CAF50), radius = 6.dp.toPx(), center = points.first())
+                drawCircle(color = lineColor, radius = 6.dp.toPx(), center = points.first())
             }
         }
     }

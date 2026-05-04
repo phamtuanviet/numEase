@@ -1,11 +1,10 @@
 package com.example.numease.presentation.parent.selection
 
-
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,15 +14,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.ChildProfile
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,21 +31,34 @@ fun ChildSelectionStatsScreen(
     val children by viewModel.children.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    val colorScheme = MaterialTheme.colorScheme
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Chọn trẻ xem thống kê", fontWeight = FontWeight.Bold) },
+            CenterAlignedTopAppBar(
+                title = {
+                    Text("Chọn trẻ xem thống kê", fontWeight = FontWeight.Bold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, "Quay lại")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
-        containerColor = Color(0xFFF8F9FA)
+        // SỬA LẠI: Trả về màu nền nguyên bản, sạch sẽ và đồng bộ với màn ManageChildrenScreen
+        containerColor = colorScheme.background
     ) { paddingValues ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
         } else {
@@ -63,8 +72,8 @@ fun ChildSelectionStatsScreen(
                 item {
                     Text(
                         text = "Vui lòng chọn một hồ sơ để xem báo cáo chi tiết về tiến độ học tập.",
-                        fontSize = 15.sp,
-                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
@@ -85,16 +94,29 @@ fun ChildSelectionCard(
     child: ChildProfile,
     onClick: () -> Unit
 ) {
-    val avatar = if (child.gender.uppercase() == "MALE") "👦" else "👧"
-    val accentColor = if (child.gender.uppercase() == "MALE") Color(0xFF2196F3) else Color(0xFFE91E63)
+    val colorScheme = MaterialTheme.colorScheme
 
-    Surface(
+    val (avatar, avatarBgColor, avatarContentColor) = when (child.gender?.uppercase()) {
+        "MALE" -> Triple("👦", colorScheme.secondaryContainer, colorScheme.onSecondaryContainer)
+        "FEMALE" -> Triple("👧", colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer)
+        else -> Triple("🦊", colorScheme.primaryContainer, colorScheme.onPrimaryContainer)
+    }
+
+    ElevatedCard(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = Color.White,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp))
+            // SỬA LẠI: Chỉ giữ viền mờ cực mỏng để tách biệt thẻ khỏi nền, bỏ hoàn toàn các màu loạn xạ
+            .border(
+                width = 1.dp,
+                color = colorScheme.outlineVariant,
+                shape = RoundedCornerShape(20.dp)
+            )
     ) {
         Row(
             modifier = Modifier
@@ -102,11 +124,10 @@ fun ChildSelectionCard(
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar tròn
             Box(
                 modifier = Modifier
                     .size(60.dp)
-                    .background(accentColor.copy(alpha = 0.1f), CircleShape),
+                    .background(avatarBgColor, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(avatar, fontSize = 32.sp)
@@ -117,22 +138,22 @@ fun ChildSelectionCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = child.name,
-                    fontSize = 18.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2D3142)
+                    color = colorScheme.onSurface
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "${child.age} tuổi • Màn chơi hiện tại: ${child.currentLevel}",
-                    fontSize = 14.sp,
-                    color = Color.Gray
+                    text = "${child.age ?: "?"} tuổi • Màn chơi hiện tại: ${child.currentLevel}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant
                 )
             }
 
-            // Mũi tên chỉ dẫn
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = Color.LightGray
+                contentDescription = "Xem thống kê",
+                tint = colorScheme.outline
             )
         }
     }

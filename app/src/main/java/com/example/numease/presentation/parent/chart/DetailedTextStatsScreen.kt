@@ -1,6 +1,7 @@
 package com.example.numease.presentation.parent.chart
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -14,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,13 +32,14 @@ fun DetailedTextStatsScreen(
 ) {
     val sessions by viewModel.sessions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(childId, categoryId) {
         viewModel.loadChartData(childId, categoryId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Lịch sử chi tiết", fontWeight = FontWeight.Bold) },
@@ -50,12 +51,12 @@ fun DetailedTextStatsScreen(
         }
     ) { paddingValues ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
         } else if (sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bé chưa có lịch sử học cho kĩ năng này.", color = Color.Gray)
+            Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                Text("Bé chưa có lịch sử học.", color = colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -63,22 +64,20 @@ fun DetailedTextStatsScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                // Header mô tả
                 Column(modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)) {
                     Text(
                         text = "Danh sách 20 bài gần nhất",
-                        fontSize = 20.sp,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
-                        color = Color(0xFF37474F)
+                        color = colorScheme.onBackground
                     )
                     Text(
                         text = "Sắp xếp từ mới nhất đến cũ nhất",
-                        fontSize = 14.sp,
-                        color = Color.Gray
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant
                     )
                 }
 
-                // Danh sách (LazyColumn)
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 24.dp),
@@ -95,7 +94,8 @@ fun DetailedTextStatsScreen(
 
 @Composable
 fun TextHistoryCard(session: StudySession, index: Int) {
-    // 1. Tính toán sao (Giống logic màn Map)
+    val colorScheme = MaterialTheme.colorScheme
+
     val stars = when {
         session.totalQuestions == 0 -> 0
         session.correctAnswers == session.totalQuestions -> 3
@@ -104,52 +104,49 @@ fun TextHistoryCard(session: StudySession, index: Int) {
         else -> 0
     }
 
-    // 2. Chuyển đổi màu sắc tùy theo kết quả
     val statusColor = when (stars) {
-        3 -> Color(0xFF4CAF50) // Xanh lá (Hoàn hảo)
-        2 -> Color(0xFF2196F3) // Xanh dương (Tốt)
-        1 -> Color(0xFFFF9800) // Cam (Cần cố gắng)
-        else -> Color(0xFFF44336) // Đỏ (Làm lại)
+        3 -> colorScheme.primary
+        2 -> colorScheme.secondary
+        1 -> colorScheme.tertiary
+        else -> colorScheme.error
     }
 
-    Surface(
-        color = Color.White,
+    ElevatedCard(
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(2.dp, RoundedCornerShape(16.dp))
+            .border(1.dp, colorScheme.outlineVariant, RoundedCornerShape(16.dp))
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Số thứ tự ở góc trái
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(Color(0xFFF5F5F5), CircleShape),
+                    .background(colorScheme.surfaceVariant, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = "#${index + 1}",
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color.Gray
+                    color = colorScheme.onSurfaceVariant
                 )
             }
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            // Nội dung chính
             Column(modifier = Modifier.weight(1f)) {
-                // Thời gian làm bài
                 Text(
                     text = formatDateTime(session.createdAt),
-                    fontSize = 13.sp,
-                    color = Color.Gray
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Kết quả đúng/sai
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
@@ -157,17 +154,16 @@ fun TextHistoryCard(session: StudySession, index: Int) {
                         tint = statusColor,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Đúng: ${session.correctAnswers} / ${session.totalQuestions}",
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF37474F)
+                        color = colorScheme.onSurface
                     )
                 }
             }
 
-            // Hiển thị dải Sao
             Row {
                 repeat(3) { i ->
                     Text(
@@ -181,23 +177,19 @@ fun TextHistoryCard(session: StudySession, index: Int) {
     }
 }
 
-// Hàm hỗ trợ format thời gian từ Database (ISO 8601) ra chuỗi dễ đọc
 fun formatDateTime(isoString: String?): String {
-    if (isoString == null) return "Không rõ thời gian"
-    try {
-        // Cắt bỏ phần mili giây và múi giờ nếu có (VD: 2026-04-25T16:39:04...)
+    if (isoString.isNullOrBlank()) return "Không rõ thời gian"
+    return try {
         val cleanString = isoString.substringBefore('.').substringBefore('+').substringBefore('Z')
         val parts = cleanString.split("T")
-        if (parts.size == 2) {
+        if (parts.size >= 2) {
             val dateParts = parts[0].split("-")
             val timeParts = parts[1].split(":")
             if (dateParts.size == 3 && timeParts.size >= 2) {
-                // Trả về dạng: 25/04/2026 - 16:39
-                return "${dateParts[2]}/${dateParts[1]}/${dateParts[0]} lúc ${timeParts[0]}:${timeParts[1]}"
-            }
-        }
-        return cleanString // Nếu parse lỗi thì in ra chuỗi gốc
+                "${dateParts[2]}/${dateParts[1]}/${dateParts[0]} lúc ${timeParts[0]}:${timeParts[1]}"
+            } else cleanString
+        } else cleanString
     } catch (e: Exception) {
-        return "Gần đây"
+        "Gần đây"
     }
 }

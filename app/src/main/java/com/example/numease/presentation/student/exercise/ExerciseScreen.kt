@@ -1,8 +1,8 @@
+@file:OptIn(ExperimentalLayoutApi::class) // Cần thiết cho FlowRow
+
 package com.example.numease.presentation.student.exercise
 
-
 import android.speech.tts.TextToSpeech
-import kotlinx.coroutines.delay
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,10 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,7 +33,6 @@ import com.example.numease.utils.getEmojiForObject
 import kotlinx.coroutines.delay
 import java.util.Locale
 
-
 @Composable
 fun ExerciseScreen(
     categoryId: Int,
@@ -46,6 +43,7 @@ fun ExerciseScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val colorScheme = MaterialTheme.colorScheme
 
     // --- CÀI ĐẶT TEXT-TO-SPEECH ---
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
@@ -61,10 +59,10 @@ fun ExerciseScreen(
         }
     }
 
-    val isSoundEnabled = LocalSoundEnabled.current // Gọi thẳng biến toàn cục
+    val isSoundEnabled = LocalSoundEnabled.current
 
     val playAudio = { message: String ->
-        if (isSoundEnabled) { // Chỉ phát nếu bé bật âm thanh
+        if (isSoundEnabled) {
             tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
         }
     }
@@ -78,11 +76,9 @@ fun ExerciseScreen(
         is ExerciseUiState.Playing -> {
             val currentExercise = state.exercises[state.currentIndex]
 
-            // 1. STATE QUẢN LÝ HIỆU ỨNG CHUNG CHO TẤT CẢ DẠNG BÀI
             var feedbackState by remember { mutableStateOf<Boolean?>(null) }
             var pendingAnswer by remember { mutableStateOf<Any?>(null) }
 
-            // 2. ĐỌC ĐỀ BÀI KHI CHUYỂN CÂU MỚI
             LaunchedEffect(state.currentIndex) {
                 val text = when (val content = currentExercise.content) {
                     is CountingContent -> content.instruction.text
@@ -94,137 +90,135 @@ fun ExerciseScreen(
                 playAudio(text)
             }
 
-            Box(modifier = Modifier.fillMaxSize().background(Color.White).systemBarsPadding()) {
+            // Dùng Surface làm nền để tự động đổi màu theo Theme
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = colorScheme.background
+            ) {
+                Box(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        ExerciseTopBar(state.currentIndex, state.exercises.size, onPauseAndExit)
 
-                // --- PHẦN GIAO DIỆN CHÍNH ---
-                Column(modifier = Modifier.fillMaxSize()) {
-                    ExerciseTopBar(state.currentIndex, state.exercises.size, onPauseAndExit)
+                        Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp)) {
+                            key(state.currentIndex) {
+                                when (val content = currentExercise.content) {
+                                    is CountingContent -> {
+                                        CountingUI(
+                                            content = content,
+                                            onPlayAudio = playAudio,
+                                            onAnswerSelected = { answer ->
+                                                if (feedbackState == null) {
+                                                    pendingAnswer = answer
+                                                    val isCorrect = (answer == content.correctAnswer)
+                                                    feedbackState = isCorrect
 
-                    Box(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 24.dp)) {
-
-                        // QUAN TRỌNG: Dùng key để ép Compose xóa giao diện cũ, vẽ lại giao diện mới khi sang câu
-                        key(state.currentIndex) {
-                            when (val content = currentExercise.content) {
-                                is CountingContent -> {
-                                    CountingUI(
-                                        content = content,
-                                        onPlayAudio = playAudio,
-                                        onAnswerSelected = { answer ->
-                                            // KHÓA BẤM NHIỀU LẦN: Nếu đang hiện hiệu ứng thì không nhận nút bấm nữa
-                                            if (feedbackState == null) {
-                                                pendingAnswer = answer
-                                                val isCorrect = (answer == content.correctAnswer)
-                                                feedbackState = isCorrect
-
-                                                if (isCorrect) playAudio("Đúng rồi, giỏi quá!")
-                                                else playAudio("Chưa chính xác.")
+                                                    if (isCorrect) playAudio("Đúng rồi, giỏi quá!")
+                                                    else playAudio("Chưa chính xác.")
+                                                }
                                             }
-                                        }
-                                    )
-                                }
-                                is DragDropContent -> {
-                                    // ĐÃ SỬA: Thay thế Text("Drag Drop UI") bằng component thực tế
-                                    DragDropUI(
-                                        content = content,
-                                        onPlayAudio = playAudio,
-                                        onAnswerSelected = {
-                                            // Vì DragDropUI chỉ gọi callback này khi bé đã ghép ĐÚNG HẾT
-                                            // nên chúng ta mặc định kết quả là True.
-                                            if (feedbackState == null) {
-                                                pendingAnswer = 1 // Gửi giá trị 1 tượng trưng cho "Đúng"
-                                                feedbackState = true
-                                                playAudio("Xuất sắc luôn, bé giỏi quá!")
+                                        )
+                                    }
+                                    is DragDropContent -> {
+                                        DragDropUI(
+                                            content = content,
+                                            onPlayAudio = playAudio,
+                                            onAnswerSelected = {
+                                                if (feedbackState == null) {
+                                                    pendingAnswer = 1
+                                                    feedbackState = true
+                                                    playAudio("Xuất sắc luôn, bé giỏi quá!")
+                                                }
                                             }
-                                        }
-                                    )
-                                }
-                                is ComparingContent -> {
-                                    ComparingUI(
-                                        content = content,
-                                        onPlayAudio = playAudio,
-                                        onAnswerSelected = { answer ->
-                                            // Đảm bảo không cho bấm 2 lần khi đang hiện Overlay
-                                            if (feedbackState == null) {
-                                                pendingAnswer = answer // Lưu dấu bé đã chọn (">", "<", "=")
-                                                val isCorrect = (answer == content.correctAnswer)
-                                                feedbackState = isCorrect
+                                        )
+                                    }
+                                    is ComparingContent -> {
+                                        ComparingUI(
+                                            content = content,
+                                            onPlayAudio = playAudio,
+                                            onAnswerSelected = { answer ->
+                                                if (feedbackState == null) {
+                                                    pendingAnswer = answer
+                                                    val isCorrect = (answer == content.correctAnswer)
+                                                    feedbackState = isCorrect
 
-                                                if (isCorrect) playAudio("Đúng rồi, bé thật thông minh!")
-                                                else playAudio("Chưa chính xác, thử lại nhé.")
+                                                    if (isCorrect) playAudio("Đúng rồi, bé thật thông minh!")
+                                                    else playAudio("Chưa chính xác, thử lại nhé.")
+                                                }
                                             }
-                                        }
-                                    )
-                                }
+                                        )
+                                    }
+                                    is CalculationContent -> {
+                                        CalculationUI(
+                                            content = content,
+                                            onPlayAudio = playAudio,
+                                            onAnswerSelected = { answer ->
+                                                if (feedbackState == null) {
+                                                    pendingAnswer = answer
+                                                    val isCorrect = (answer == content.correctAnswer)
+                                                    feedbackState = isCorrect
 
-                                is CalculationContent -> {
-                                    CalculationUI(
-                                        content = content,
-                                        onPlayAudio = playAudio,
-                                        onAnswerSelected = { answer ->
-                                            if (feedbackState == null) {
-                                                pendingAnswer = answer
-                                                val isCorrect = (answer == content.correctAnswer)
-                                                feedbackState = isCorrect
-
-                                                if (isCorrect) playAudio("Tuyệt vời, bé tính giỏi quá!")
-                                                else playAudio("Chưa chính xác, bé đếm lại các chấm tròn nhé.")
+                                                    if (isCorrect) playAudio("Tuyệt vời, bé tính giỏi quá!")
+                                                    else playAudio("Chưa chính xác, bé đếm lại các chấm tròn nhé.")
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // --- LỚP PHỦ OVERLAY ĐÚNG/SAI (Bao trùm toàn màn hình) ---
-                if (feedbackState != null) {
-                    FeedbackOverlay(
-                        isCorrect = feedbackState!!,
-                        onAnimationEnd = {
-                            // Hết 1.5 giây -> Nộp bài cho ViewModel -> ViewModel tăng currentIndex
-                            viewModel.submitAnswer(pendingAnswer!!)
-                            // Tắt overlay
-                            feedbackState = null
-                            pendingAnswer = null
-                        }
-                    )
+                    if (feedbackState != null) {
+                        FeedbackOverlay(
+                            isCorrect = feedbackState!!,
+                            onAnimationEnd = {
+                                viewModel.submitAnswer(pendingAnswer!!)
+                                feedbackState = null
+                                pendingAnswer = null
+                            }
+                        )
+                    }
                 }
             }
         }
     }
 }
-// ... (Tiếp tục trong file ExerciseScreen.kt)
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CountingUI(
     content: CountingContent,
     onPlayAudio: (String) -> Unit,
-    onAnswerSelected: (Int) -> Unit // Truyền đáp án ra ngoài
+    onAnswerSelected: (Int) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Khung đề bài + Âm thanh
-        Surface(
-            color = Color(0xFFE3F2FD),
+        // Khung đề bài + Âm thanh (Dùng SecondaryContainer)
+        ElevatedCard(
             shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colorScheme.secondaryContainer
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             modifier = Modifier.clickable { onPlayAudio(content.instruction.text) }
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Icon(Icons.Default.VolumeUp, "Nghe lại", tint = Color(0xFF1565C0))
+                Icon(Icons.Default.VolumeUp, "Nghe lại", tint = colorScheme.onSecondaryContainer)
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = content.instruction.text,
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1565C0)
+                    color = colorScheme.onSecondaryContainer
                 )
             }
         }
@@ -250,19 +244,33 @@ fun CountingUI(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Nút đáp án
+        // Nút đáp án (Dùng Primary color)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             content.options.forEach { option ->
                 Button(
-                    onClick = { onAnswerSelected(option) }, // Bấm phát gọi thẳng ra ngoài luôn
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF42A5F5)),
+                    onClick = { onAnswerSelected(option) },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.primary,
+                        contentColor = colorScheme.onPrimary
+                    ),
                     shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.size(90.dp).shadow(6.dp, RoundedCornerShape(24.dp))
+                    // Giảm khoảng đệm mặc định để có nhiều không gian hiển thị chữ hơn
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .height(90.dp) // Cố định chiều cao
+                        .widthIn(min = 90.dp) // Rộng tối thiểu 90dp, sẽ tự động giãn ngang nếu chữ dài
+                        .shadow(6.dp, RoundedCornerShape(24.dp))
                 ) {
-                    Text(option.toString(), fontSize = 36.sp, fontWeight = FontWeight.Black, color = Color.White)
+                    Text(
+                        text = option.toString(),
+                        fontSize = 36.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1, // Ép buộc chỉ hiển thị trên 1 dòng
+                        softWrap = false // Tắt tính năng tự động rớt dòng
+                    )
                 }
             }
         }
@@ -270,9 +278,10 @@ fun CountingUI(
     }
 }
 
-// --- THANH TIẾN ĐỘ BẰNG HẠT (METAPHOR TRỰC QUAN) ---
 @Composable
 fun ExerciseTopBar(currentIndex: Int, totalQuestions: Int, onClose: () -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -280,26 +289,26 @@ fun ExerciseTopBar(currentIndex: Int, totalQuestions: Int, onClose: () -> Unit) 
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Nút Thoát/Tạm dừng
+        // Nút Thoát/Tạm dừng (Dùng SurfaceVariant)
         IconButton(
             onClick = onClose,
-            modifier = Modifier.background(Color(0xFFF5F5F5), RoundedCornerShape(16.dp))
+            modifier = Modifier.background(colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
         ) {
-            Icon(Icons.Default.Close, contentDescription = "Đóng", tint = Color.Gray)
+            Icon(Icons.Default.Close, contentDescription = "Đóng", tint = colorScheme.onSurfaceVariant)
         }
 
         // Hạt tiến độ
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier
-                .background(Color(0xFFF5F5F5), RoundedCornerShape(24.dp))
+                .background(colorScheme.surfaceVariant, RoundedCornerShape(24.dp))
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             for (i in 0 until totalQuestions) {
                 val dotColor = when {
-                    i < currentIndex -> Color(0xFF4CAF50) // Đã làm (Xanh lá)
-                    i == currentIndex -> Color(0xFF2196F3) // Đang làm (Xanh dương)
-                    else -> Color(0xFFE0E0E0) // Chưa làm (Xám)
+                    i < currentIndex -> colorScheme.primary // Đã làm (Xanh lá - Primary)
+                    i == currentIndex -> colorScheme.tertiary // Đang làm (Vàng - Tertiary)
+                    else -> colorScheme.outlineVariant // Chưa làm (Xám nhạt)
                 }
                 Box(
                     modifier = Modifier
@@ -310,43 +319,26 @@ fun ExerciseTopBar(currentIndex: Int, totalQuestions: Int, onClose: () -> Unit) 
             }
         }
 
-        // Box rỗng để cân bằng layout
         Box(modifier = Modifier.size(48.dp))
     }
 }
-
-// --- HIỆU ỨNG PHẢN HỒI (ĐÚNG / SAI) ---
-@Composable
-fun FeedbackOverlay(isCorrect: Boolean) {
-    val bgColor = if (isCorrect) Color(0xFF4CAF50).copy(alpha = 0.8f) else Color(0xFFF44336).copy(alpha = 0.8f)
-    val icon = if (isCorrect) "✅" else "❌"
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgColor),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = icon,
-            fontSize = 150.sp,
-            modifier = Modifier.shadow(24.dp, CircleShape) // Tạo bóng cho đẹp
-        )
-    }
-}
-
-
-
 
 @Composable
 fun FeedbackOverlay(
     isCorrect: Boolean,
     onAnimationEnd: () -> Unit
 ) {
-    val bgColor = if (isCorrect) Color(0xFF4CAF50).copy(alpha = 0.8f) else Color(0xFFF44336).copy(alpha = 0.8f)
+    // Sử dụng màu chuẩn của MD3: primaryContainer cho Đúng, errorContainer cho Sai
+    // Giảm alpha xuống 0.9f để không bị gắt quá
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = if (isCorrect) {
+        colorScheme.primaryContainer.copy(alpha = 0.9f)
+    } else {
+        colorScheme.errorContainer.copy(alpha = 0.9f)
+    }
+
     val icon = if (isCorrect) "✅" else "❌"
 
-    // Tự động đếm ngược 1.5 giây rồi báo ra ngoài
     LaunchedEffect(Unit) {
         delay(1500)
         onAnimationEnd()
@@ -361,7 +353,7 @@ fun FeedbackOverlay(
         Text(
             text = icon,
             fontSize = 150.sp,
-            modifier = Modifier.shadow(24.dp, CircleShape)
+            modifier = Modifier.shadow(16.dp, CircleShape)
         )
     }
 }

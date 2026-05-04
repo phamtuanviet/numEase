@@ -1,4 +1,5 @@
 package com.example.numease.presentation.admin.content
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,37 +17,39 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageContentScreen(
     viewModel: ManageContentViewModel = hiltViewModel(),
-    // Các callback điều hướng cho BottomBar
     onNavigateToHome: () -> Unit,
     onNavigateToManageUsers: () -> Unit,
     onNavigateToManageLevels: (categoryId: Int, categoryName: String, categoryCode: String) -> Unit
 ) {
     val categoryStats by viewModel.categoryStats.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Quản lý Nội dung", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
         bottomBar = {
-            // Thanh điều hướng dùng chung giống AdminHomeScreen
-            NavigationBar(containerColor = Color.White) {
+            NavigationBar(
+                containerColor = colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
                 NavigationBarItem(
                     selected = false,
                     onClick = onNavigateToHome,
@@ -54,8 +57,8 @@ fun ManageContentScreen(
                     label = { Text("Tổng quan") }
                 )
                 NavigationBarItem(
-                    selected = true, // Đang ở màn Nội dung nên báo sáng thẻ này
-                    onClick = { /* Đang ở đây rồi */ },
+                    selected = true,
+                    onClick = { },
                     icon = { Icon(Icons.Default.MenuBook, null) },
                     label = { Text("Nội dung") }
                 )
@@ -82,14 +85,14 @@ fun ManageContentScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "Ngân hàng câu hỏi",
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F)
+                    color = colorScheme.onBackground
                 )
                 Text(
                     text = "Chọn một chuyên đề để quản lý các màn chơi bên trong.",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp)
                 )
 
@@ -100,21 +103,15 @@ fun ManageContentScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     itemsIndexed(
-                        items = categoryStats,
-                        // Làm cho ô cuối cùng (nếu lẻ) nằm tràn viền ra giữa cho đẹp
-                        span = { index, _ ->
-                            if (index == categoryStats.lastIndex && categoryStats.size % 2 != 0) {
-                                GridItemSpan(2)
-                            } else {
-                                GridItemSpan(1)
-                            }
-                        }
-                    ) { _, stat ->
+                        items = categoryStats
+                    ) { index, stat ->
                         CategoryBlockCard(
                             stat = stat,
                             onClick = {
                                 onNavigateToManageLevels(stat.id, stat.name, stat.code)
-                            }
+                            },
+                            // Sửa logic span trực tiếp ở đây hoặc dùng logic cũ của bạn
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -124,18 +121,25 @@ fun ManageContentScreen(
 }
 
 @Composable
-fun CategoryBlockCard(stat: CategoryStat, onClick: () -> Unit) {
-    // Tự động gán Icon và Màu sắc dựa theo mã CODE của thể loại
+fun CategoryBlockCard(
+    stat: CategoryStat,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colorScheme = MaterialTheme.colorScheme
     val (icon, color) = getCategoryStyling(stat.code)
 
-    Surface(
-        color = Color.White,
+    // Dùng OutlinedCard để đảm bảo nhìn thấy viền rõ ràng trên Emulator
+    OutlinedCard(
+        onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(1f) // Tạo hình vuông
-            .shadow(4.dp, RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(colorScheme.outlineVariant)
+        ),
+        modifier = modifier.aspectRatio(1f)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -158,37 +162,37 @@ fun CategoryBlockCard(stat: CategoryStat, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stat.name,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF37474F)
+                color = colorScheme.onSurface,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Hiển thị số lượng câu hỏi bằng một cục Chip nhỏ
+            // Chip hiển thị số lượng
             Surface(
-                color = color.copy(alpha = 0.1f),
+                color = color.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
                     text = "${stat.totalQuestions} bài tập",
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     color = color,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                 )
             }
         }
     }
 }
 
-// Hàm hỗ trợ chọn Icon và Màu sắc tự động
 fun getCategoryStyling(code: String): Pair<ImageVector, Color> {
     return when (code.uppercase()) {
-        "COUNTING" -> Pair(Icons.Default.Filter1, Color(0xFF4CAF50)) // Xanh lá
-        "COMPARING" -> Pair(Icons.Default.CompareArrows, Color(0xFFFF9800)) // Cam
-        "DRAG_DROP" -> Pair(Icons.Default.Swipe, Color(0xFF9C27B0)) // Tím
-        "ADDITION" -> Pair(Icons.Default.AddCircleOutline, Color(0xFF2196F3)) // Xanh dương
-        "SUBTRACTION" -> Pair(Icons.Default.RemoveCircleOutline, Color(0xFFE91E63)) // Hồng đỏ
+        "COUNTING" -> Pair(Icons.Default.Filter1, Color(0xFF4CAF50))
+        "COMPARING" -> Pair(Icons.Default.CompareArrows, Color(0xFFFF9800))
+        "DRAG_DROP" -> Pair(Icons.Default.Swipe, Color(0xFF9C27B0))
+        "ADDITION" -> Pair(Icons.Default.AddCircleOutline, Color(0xFF2196F3))
+        "SUBTRACTION" -> Pair(Icons.Default.RemoveCircleOutline, Color(0xFFE91E63))
         else -> Pair(Icons.Default.Category, Color.Gray)
     }
 }

@@ -12,7 +12,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -23,31 +22,40 @@ import com.example.numease.data.model.ComparingContent
 fun ComparingUI(
     content: ComparingContent,
     onPlayAudio: (String) -> Unit,
-    onAnswerSelected: (String) -> Unit // Gửi chuỗi ">", "<" hoặc "=" về cho ViewModel
+    onAnswerSelected: (String) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 1. Khung đề bài & Nút âm thanh (Kế thừa style của các màn trước)
-        Surface(
-            color = Color(0xFFE1F5FE), // Màu xanh dương nhạt của Biển So Sánh
+        // 1. Khung đề bài & Nút âm thanh (Dùng Secondary Theme cho Biển So Sánh)
+        ElevatedCard(
             shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(
+                containerColor = colorScheme.secondaryContainer
+            ),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             modifier = Modifier.clickable { onPlayAudio(content.instruction.text) }
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                Icon(Icons.Default.VolumeUp, "Nghe lại", tint = Color(0xFF0277BD))
+                Icon(
+                    Icons.Default.VolumeUp,
+                    contentDescription = "Nghe lại",
+                    tint = colorScheme.onSecondaryContainer
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = content.instruction.text,
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0277BD),
+                    color = colorScheme.onSecondaryContainer,
                     textAlign = TextAlign.Center
                 )
             }
@@ -64,15 +72,23 @@ fun ComparingUI(
             // Thẻ số bên TRÁI
             NumberCardWithDots(number = content.leftValue)
 
-            // Vòng tròn Dấu hỏi ở giữa
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(70.dp)
-                    .background(Color(0xFFFFF9C4), CircleShape)
-                    .shadow(4.dp, CircleShape)
+            // Vòng tròn Dấu hỏi ở giữa (Dùng Tertiary Container để nổi bật)
+            ElevatedCard(
+                shape = CircleShape,
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = colorScheme.tertiaryContainer
+                ),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+                modifier = Modifier.size(70.dp)
             ) {
-                Text("?", fontSize = 40.sp, fontWeight = FontWeight.Black, color = Color(0xFFF57F17))
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "?",
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Black,
+                        color = colorScheme.onTertiaryContainer
+                    )
+                }
             }
 
             // Thẻ số bên PHẢI
@@ -89,17 +105,23 @@ fun ComparingUI(
             content.options.forEach { option ->
                 Button(
                     onClick = { onAnswerSelected(option) },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF29B6F6)),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.secondary, // Đồng bộ màu nút với vùng đề bài
+                        contentColor = colorScheme.onSecondary
+                    ),
                     shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier
-                        .size(90.dp)
+                        .height(90.dp)
+                        .widthIn(min = 90.dp)
                         .shadow(6.dp, RoundedCornerShape(24.dp))
                 ) {
                     Text(
                         text = option,
                         fontSize = 48.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.White
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -110,13 +132,16 @@ fun ComparingUI(
 }
 
 // --- UX ĐẶC BIỆT CHO TRẺ DYSCALCULIA ---
-// Thẻ hiển thị số kết hợp với lưới các chấm tròn (Dot Grid)
 @Composable
 fun NumberCardWithDots(number: Int) {
-    Surface(
-        color = Color.White,
+    val colorScheme = MaterialTheme.colorScheme
+
+    ElevatedCard(
         shape = RoundedCornerShape(24.dp),
-        shadowElevation = 8.dp,
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 8.dp),
         modifier = Modifier.width(120.dp)
     ) {
         Column(
@@ -128,13 +153,13 @@ fun NumberCardWithDots(number: Int) {
                 text = number.toString(),
                 fontSize = 56.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF37474F)
+                color = colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Lưới chấm tròn (Tối đa 5 chấm 1 hàng để bé dễ nhận diện)
-            val rows = (number + 4) / 5 // Tính số hàng cần thiết
+            // Lưới chấm tròn
+            val rows = (number + 4) / 5
             Column(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -146,7 +171,8 @@ fun NumberCardWithDots(number: Int) {
                             Box(
                                 modifier = Modifier
                                     .size(12.dp)
-                                    .background(Color(0xFFFFCA28), CircleShape) // Chấm vàng nổi bật
+                                    // Dùng màu Tertiary (Vàng/Cam) cho các hạt để thu hút ánh nhìn
+                                    .background(colorScheme.tertiary, CircleShape)
                             )
                         }
                     }

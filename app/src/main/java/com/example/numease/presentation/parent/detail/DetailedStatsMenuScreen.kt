@@ -1,6 +1,7 @@
 package com.example.numease.presentation.parent.detail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -17,13 +18,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,17 +32,23 @@ fun DetailedStatsMenuScreen(
     onBack: () -> Unit,
     onSelectChartType: (String) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background, // Tự động nền sáng/tối
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Chọn dạng báo cáo", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text("Chọn dạng báo cáo", fontWeight = FontWeight.Bold)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
     ) { paddingValues ->
@@ -57,8 +62,8 @@ fun DetailedStatsMenuScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Bạn muốn xem phân tích theo định dạng nào?",
-                fontSize = 16.sp,
-                color = Color.Gray,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.onSurfaceVariant, // Chữ phụ xám mờ chuẩn MD3
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
@@ -74,8 +79,8 @@ fun DetailedStatsMenuScreen(
                     ChartMenuCard(
                         title = "Biểu đồ Đường",
                         subtitle = "Phong độ theo thời gian",
-                        icon = Icons.Default.SsidChart, // Icon dạng đường cong
-                        iconColor = Color(0xFF4CAF50),
+                        icon = Icons.Default.SsidChart,
+                        iconColor = colorScheme.primary, // Xanh lá theo Theme
                         onClick = { onSelectChartType("LINE") }
                     )
                 }
@@ -84,7 +89,7 @@ fun DetailedStatsMenuScreen(
                         title = "Biểu đồ Cột",
                         subtitle = "So sánh các bài tập",
                         icon = Icons.Default.BarChart,
-                        iconColor = Color(0xFF2196F3),
+                        iconColor = colorScheme.secondary, // Xanh dương theo Theme
                         onClick = { onSelectChartType("BAR") }
                     )
                 }
@@ -93,7 +98,7 @@ fun DetailedStatsMenuScreen(
                         title = "Biểu đồ Tròn",
                         subtitle = "Tỉ lệ đúng / sai",
                         icon = Icons.Default.PieChart,
-                        iconColor = Color(0xFFFF9800),
+                        iconColor = colorScheme.tertiary, // Vàng/Cam theo Theme
                         onClick = { onSelectChartType("PIE") }
                     )
                 }
@@ -102,7 +107,7 @@ fun DetailedStatsMenuScreen(
                         title = "Dạng Chữ",
                         subtitle = "Lịch sử chi tiết",
                         icon = Icons.Default.FormatListNumbered,
-                        iconColor = Color(0xFF9C27B0),
+                        iconColor = colorScheme.onSurfaceVariant, // Màu trung tính
                         onClick = { onSelectChartType("TEXT") }
                     )
                 }
@@ -119,24 +124,36 @@ fun ChartMenuCard(
     iconColor: Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        color = Color.White,
+    val colorScheme = MaterialTheme.colorScheme
+
+    ElevatedCard(
+        onClick = onClick,
         shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            // Tỉ lệ 1:1 cho thẻ vuông vức đẹp mắt
             .aspectRatio(0.85f)
-            .shadow(4.dp, RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+            // Viền mỏng tạo độ nét cho thẻ khi ở chế độ Dark Mode
+            .border(
+                width = 1.dp,
+                color = colorScheme.outlineVariant,
+                shape = RoundedCornerShape(20.dp)
+            )
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
                     .size(64.dp)
+                    // Nền icon lấy chính màu icon nhưng giảm alpha xuống 15%
                     .background(iconColor.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -152,16 +169,16 @@ fun ChartMenuCard(
 
             Text(
                 text = title,
-                fontSize = 16.sp,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF37474F),
+                color = colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = subtitle,
-                fontSize = 12.sp,
-                color = Color.Gray,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }

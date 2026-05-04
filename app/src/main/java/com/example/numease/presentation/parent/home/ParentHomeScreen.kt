@@ -8,13 +8,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.UserPreferencesViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParentHomeScreen(
     viewModel: ParentHomeViewModel = hiltViewModel(),
@@ -38,19 +39,14 @@ fun ParentHomeScreen(
     val isLoading by viewModel.isLoading.collectAsState()
 
     val userPrefs by userPrefsViewModel.preferences.collectAsState()
-
-    // Trạng thái Dialogs
     var showSettings by remember { mutableStateOf(false) }
 
-    // --- DIALOG CÀI ĐẶT DÀNH CHO PHỤ HUYNH ---
+    // --- DIALOG CÀI ĐẶT ---
     if (showSettings) {
         AlertDialog(
             onDismissRequest = { showSettings = false },
             confirmButton = {
-                Button(
-                    onClick = { showSettings = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
+                TextButton(onClick = { showSettings = false }) {
                     Text("Đóng")
                 }
             },
@@ -65,7 +61,7 @@ fun ParentHomeScreen(
                     Text("Đăng xuất", fontWeight = FontWeight.Bold)
                 }
             },
-            title = { Text("Cài đặt", fontWeight = FontWeight.Bold) },
+            title = { Text("Cài đặt", style = MaterialTheme.typography.titleLarge) },
             text = {
                 Column {
                     Row(
@@ -73,84 +69,73 @@ fun ParentHomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Chế độ tối")
+                        Text("Chế độ tối", style = MaterialTheme.typography.bodyLarge)
                         Switch(
                             checked = userPrefs.isDarkMode,
                             onCheckedChange = { userPrefsViewModel.toggleDarkMode(it) }
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Âm thanh hệ thống")
+                        Text("Âm thanh hệ thống", style = MaterialTheme.typography.bodyLarge)
                         Switch(
                             checked = userPrefs.isSoundEnabled,
                             onCheckedChange = { userPrefsViewModel.toggleSound(it) }
                         )
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Divider()
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Spacer(modifier = Modifier.height(24.dp))
 
-                    // Nút đưa máy lại cho con học
                     OutlinedButton(
                         onClick = {
                             showSettings = false
                             onNavigateToStudentWorkspace()
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         Text("Chuyển sang Chế độ Học sinh")
                     }
                 }
             },
-            shape = RoundedCornerShape(24.dp)
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
-    // --- DIALOG CHỌN BÉ ĐỂ XEM THỐNG KÊ ---
-
-    // ==========================================
-    // GIAO DIỆN CHÍNH
-    // ==========================================
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        // Cấu hình TopAppBar của MD3 sẽ tự động xử lý WindowInsets (tránh đè lên thanh WiFi/Pin)
         topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Xin chào,",
-                        fontSize = 16.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = parentName,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                IconButton(
-                    onClick = { showSettings = true },
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
-                        .size(48.dp)
-                ) {
-                    Icon(Icons.Default.Settings, "Cài đặt", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
+            CenterAlignedTopAppBar(
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Xin chào, $parentName",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Trang quản lý Phụ Huynh",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Cài đặt")
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
     ) { paddingValues ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -160,31 +145,51 @@ fun ParentHomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
+                    .padding(paddingValues) // Scaffold sẽ cung cấp padding tương ứng với TopAppBar
                     .padding(horizontal = 24.dp)
             ) {
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Thẻ thông tin tổng quan
-                Surface(
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                // Thẻ thông tin tổng quan sử dụng ElevatedCard của MD3
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp))
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                    )
                 ) {
                     Row(
                         modifier = Modifier.padding(24.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("👨‍👩‍👧‍👦", fontSize = 48.sp)
+                        // Avatar sử dụng Material Icon thay cho Emoji
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.1f),
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Group, // Bạn có thể đổi thành Icons.Default.SupervisorAccount
+                                    contentDescription = "Biểu tượng gia đình",
+                                    modifier = Modifier.size(32.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
                         Spacer(modifier = Modifier.width(16.dp))
+
                         Column {
                             Text(
                                 text = "Gia đình của bạn",
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
                             Text(
-                                text = "Đang quản lý ${childrenList.size} hồ sơ học sinh",
-                                fontSize = 14.sp,
+                                text = "Đang quản lý ${childrenList.size} hồ sơ",
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                             )
                         }
@@ -192,9 +197,10 @@ fun ParentHomeScreen(
                 }
 
                 Spacer(modifier = Modifier.height(32.dp))
+
                 Text(
                     text = "Chức năng chính",
-                    fontSize = 18.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -205,8 +211,8 @@ fun ParentHomeScreen(
                     title = "Quản lý Hồ sơ",
                     description = "Thêm, sửa đổi hoặc xóa thông tin tài khoản học tập của các bé.",
                     icon = Icons.Default.Face,
-                    containerColor = Color(0xFFE3F2FD),
-                    contentColor = Color(0xFF1565C0),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                     onClick = onNavigateToManageChildren
                 )
 
@@ -217,16 +223,14 @@ fun ParentHomeScreen(
                     title = "Báo cáo & Thống kê",
                     description = "Theo dõi tiến độ học tập, điểm mạnh và điểm yếu của từng bé.",
                     icon = Icons.Default.Analytics,
-                    containerColor = Color(0xFFFFF3E0),
-                    contentColor = Color(0xFFE65100),
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
                     onClick = {
                         if (childrenList.isEmpty()) {
-                            // Không làm gì (hoặc bạn có thể show Toast nhắc phụ huynh thêm bé)
+                            // Không làm gì (hoặc show Toast)
                         } else if (childrenList.size == 1) {
-                            // Chỉ có 1 bé -> Bỏ qua màn hình chọn, bay thẳng vào Thống kê
                             childrenList.first().id?.let { onNavigateToDirectStats(it) }
                         } else {
-                            // Nhiều bé -> Chuyển sang Route ChildSelectionStatsScreen
                             onNavigateToChildSelection()
                         }
                     }
@@ -248,13 +252,16 @@ fun ParentFeatureCard(
     contentColor: Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        color = containerColor,
-        shape = RoundedCornerShape(20.dp),
+    ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+            .clickable { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = containerColor
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
@@ -266,7 +273,7 @@ fun ParentFeatureCard(
                     .background(contentColor.copy(alpha = 0.15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = contentColor, modifier = Modifier.size(32.dp))
+                Icon(icon, contentDescription = title, tint = contentColor, modifier = Modifier.size(28.dp))
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -274,14 +281,14 @@ fun ParentFeatureCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    fontSize = 18.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = contentColor
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = description,
-                    fontSize = 14.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = contentColor.copy(alpha = 0.8f),
                     lineHeight = 20.sp
                 )

@@ -18,11 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.ChildProfile
 import com.example.numease.presentation.parent.manage.RecentStatsBarChart
@@ -34,7 +31,6 @@ fun ChildStatsScreen(
     viewModel: ChildStatsViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToDetailedStats: (childId: String, categoryId: Int) -> Unit
-
 ) {
     val currentChild by viewModel.currentChild.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -43,13 +39,14 @@ fun ChildStatsScreen(
     val recentSessions by viewModel.recentSessionsForCategory.collectAsState()
     val allChildren by viewModel.allChildren.collectAsState()
 
-    // Khởi tạo dữ liệu khi vào màn hình
+    val colorScheme = MaterialTheme.colorScheme
+
     LaunchedEffect(childId) {
         viewModel.initData(childId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -59,11 +56,13 @@ fun ChildStatsScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { // Khi bấm sẽ chạy về Home
+                    IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                )
             )
         }
     ) { paddingValues ->
@@ -104,11 +103,17 @@ fun ChildStatsScreen(
                 // ==========================================
                 val (correct, total) = progressPair
                 val progressRatio = if (total > 0) correct.toFloat() / total.toFloat() else 0f
-                val animatedProgress by animateFloatAsState(targetValue = progressRatio)
+                val animatedProgress by animateFloatAsState(
+                    targetValue = progressRatio,
+                    label = "progress"
+                )
 
-                Surface(
-                    color = Color.White,
+                ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = colorScheme.surface
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                 ) {
                     Column(
@@ -117,25 +122,29 @@ fun ChildStatsScreen(
                     ) {
                         Text(
                             text = "Tỉ lệ hoàn thành",
-                            color = Color.Gray,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Thanh ProgressBar béo ú bo tròn
+                        // Thanh ProgressBar
                         LinearProgressIndicator(
                             progress = { animatedProgress },
-                            modifier = Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(8.dp)),
-                            color = Color(0xFF4CAF50),
-                            trackColor = Color(0xFFE0E0E0),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(16.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            color = colorScheme.primary, // Xanh lá
+                            trackColor = colorScheme.surfaceVariant, // Xám nhạt
                         )
 
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = "$correct / $total câu đúng",
-                            fontSize = 20.sp,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Black,
-                            color = Color(0xFF2E7D32)
+                            color = colorScheme.primary
                         )
                     }
                 }
@@ -146,20 +155,22 @@ fun ChildStatsScreen(
                 // ==========================================
                 // 3. BIỂU ĐỒ CỘT (10 BÀI GẦN NHẤT) & NÚT CHI TIẾT
                 // ==========================================
-                Surface(
-                    color = Color.White,
+                ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = colorScheme.surface
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
-                        .shadow(2.dp, RoundedCornerShape(24.dp))
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Text(
                             text = "Phong độ 10 bài gần nhất",
-                            fontSize = 18.sp,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF37474F)
+                            color = colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(24.dp))
 
@@ -170,18 +181,20 @@ fun ChildStatsScreen(
                                     .height(180.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("Chưa có dữ liệu cho kĩ năng này.", color = Color.Gray)
+                                Text(
+                                    text = "Chưa có dữ liệu cho kĩ năng này.",
+                                    color = colorScheme.onSurfaceVariant
+                                )
                             }
                         } else {
                             Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                                // Tái sử dụng biểu đồ cột đã làm ở phần Quản lý
                                 RecentStatsBarChart(sessions = recentSessions)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Nút xem chi tiết (Tạm thời chỉ làm hiệu ứng UI)
+                        // Nút xem chi tiết
                         OutlinedButton(
                             onClick = {
                                 currentChild?.id?.let { id ->
@@ -208,9 +221,9 @@ fun ChildStatsScreen(
                 ) {
                     Text(
                         text = "Xem hồ sơ khác",
-                        fontSize = 16.sp,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Gray
+                        color = colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -225,7 +238,6 @@ fun ChildStatsScreen(
                                 isSelected = isSelected,
                                 onClick = {
                                     if (!isSelected && child.id != null) {
-                                        // Gọi ViewModel tải lại toàn bộ data cho bé mới
                                         viewModel.switchChild(child.id)
                                     }
                                 }
@@ -235,18 +247,17 @@ fun ChildStatsScreen(
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
-
-
             }
         }
     }
 }
 
-// Component Thẻ Kĩ năng có viền sáng màu khi được chọn
+// Component Thẻ Kĩ năng
 @Composable
 fun SkillChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (isSelected) Color(0xFF1976D2) else Color.White
-    val textColor = if (isSelected) Color.White else Color.Gray
+    val colorScheme = MaterialTheme.colorScheme
+    val bgColor = if (isSelected) colorScheme.primary else colorScheme.surface
+    val textColor = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant
 
     Box(
         modifier = Modifier
@@ -255,7 +266,7 @@ fun SkillChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
             .clickable { onClick() }
             .border(
                 width = 1.dp,
-                color = if (isSelected) Color.Transparent else Color(0xFFE0E0E0),
+                color = if (isSelected) androidx.compose.ui.graphics.Color.Transparent else colorScheme.outlineVariant,
                 shape = RoundedCornerShape(20.dp)
             )
             .padding(horizontal = 20.dp, vertical = 10.dp),
@@ -272,33 +283,36 @@ fun ChildSwitcherCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val avatar = if (child.gender.uppercase() == "MALE") "👦" else "👧"
+    val colorScheme = MaterialTheme.colorScheme
+    val avatar = if (child.gender?.uppercase() == "MALE") "👦" else "👧"
 
-    // Nếu đang được chọn thì làm nổi bật bằng viền màu và nền sáng
-    val borderColor = if (isSelected) Color(0xFF1976D2) else Color.Transparent
-    val bgColor = if (isSelected) Color(0xFFE3F2FD) else Color.White
-    val textColor = if (isSelected) Color(0xFF1565C0) else Color.Gray
+    // Nếu đang được chọn thì dùng primaryContainer, nếu không dùng surface cơ bản
+    val containerColor = if (isSelected) colorScheme.primaryContainer else colorScheme.surface
+    val textColor = if (isSelected) colorScheme.onPrimaryContainer else colorScheme.onSurfaceVariant
 
-    Surface(
-        color = bgColor,
+    ElevatedCard(
         shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = containerColor
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = if (isSelected) 4.dp else 1.dp
+        ),
         modifier = Modifier
             .width(100.dp)
-            .shadow(if (isSelected) 4.dp else 1.dp, RoundedCornerShape(16.dp))
-            .border(2.dp, borderColor, RoundedCornerShape(16.dp))
             .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(text = avatar, fontSize = 32.sp)
+            Text(text = avatar, style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = child.name,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                 color = textColor,
-                fontSize = 14.sp,
+                style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1
             )
         }

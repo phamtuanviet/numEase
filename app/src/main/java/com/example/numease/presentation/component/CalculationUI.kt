@@ -13,7 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,21 +23,26 @@ import com.example.numease.data.model.CalculationContent
 fun CalculationUI(
     content: CalculationContent,
     onPlayAudio: (String) -> Unit,
-    onAnswerSelected: (Int) -> Unit // Gửi số bé chọn về ViewModel
+    onAnswerSelected: (Int) -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isAddition = content.operator == "+"
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 1. Khung đề bài & Nút âm thanh (Màu Hồng nhạt cho Phép Cộng/Trừ)
-        val headerColor = if (content.operator == "+") Color(0xFFFCE4EC) else Color(0xFFFFF3E0)
-        val textColor = if (content.operator == "+") Color(0xFFC2185B) else Color(0xFFE65100)
+        // 1. Khung đề bài & Nút âm thanh (Phân biệt màu linh hoạt qua Theme)
+        // Dùng PrimaryContainer cho phép Cộng, TertiaryContainer cho phép Trừ
+        val headerColor = if (isAddition) colorScheme.primaryContainer else colorScheme.tertiaryContainer
+        val textColor = if (isAddition) colorScheme.onPrimaryContainer else colorScheme.onTertiaryContainer
 
-        Surface(
-            color = headerColor,
+        ElevatedCard(
             shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.elevatedCardColors(containerColor = headerColor),
+            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
             modifier = Modifier.clickable { onPlayAudio(content.instruction.text) }
         ) {
             Row(
@@ -49,7 +53,7 @@ fun CalculationUI(
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = content.instruction.text,
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = textColor,
                     textAlign = TextAlign.Center
@@ -59,7 +63,7 @@ fun CalculationUI(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // 2. KHU VỰC PHÉP TÍNH (Nằm ngang: Số + Số = ?)
+        // 2. KHU VỰC PHÉP TÍNH
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
@@ -71,9 +75,9 @@ fun CalculationUI(
             // Dấu (+ hoặc -)
             Text(
                 text = content.operator,
-                fontSize = 40.sp,
+                fontSize = 44.sp, // Tăng nhẹ size để cân bằng với thẻ số
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF37474F),
+                color = colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
@@ -83,9 +87,9 @@ fun CalculationUI(
             // Dấu Bằng
             Text(
                 text = "=",
-                fontSize = 40.sp,
+                fontSize = 44.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF37474F),
+                color = colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
@@ -93,14 +97,17 @@ fun CalculationUI(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(64.dp)
-                    .background(Color(0xFFF5F5F5), RoundedCornerShape(16.dp)) // Nền xám rất nhạt
-                    // ĐÃ SỬA: Bỏ shadow bị lỗi đi, dùng border (đường viền) để tạo ô trống
-                    .border(width = 2.dp, color = Color(0xFFE0E0E0), shape = RoundedCornerShape(16.dp))
+                    .size(72.dp) // Kéo to ô trống ra một chút để chứa vừa số có 2 chữ số (vd: 15)
+                    .background(colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
+                    .border(width = 2.dp, color = colorScheme.outline, shape = RoundedCornerShape(16.dp))
             ) {
-                Text("?", fontSize = 36.sp, fontWeight = FontWeight.Black, color = Color.Gray)
+                Text(
+                    text = "?",
+                    fontSize = 36.sp,
+                    fontWeight = FontWeight.Black,
+                    color = colorScheme.onSurfaceVariant
+                )
             }
-
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -111,21 +118,28 @@ fun CalculationUI(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             content.options.forEach { option ->
+                val buttonContainerColor = if (isAddition) colorScheme.primary else colorScheme.tertiary
+                val buttonContentColor = if (isAddition) colorScheme.onPrimary else colorScheme.onTertiary
+
                 Button(
                     onClick = { onAnswerSelected(option) },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (content.operator == "+") Color(0xFFEC407A) else Color(0xFFFF9800)
+                        containerColor = buttonContainerColor,
+                        contentColor = buttonContentColor
                     ),
                     shape = RoundedCornerShape(24.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     modifier = Modifier
-                        .size(90.dp)
+                        .height(90.dp)
+                        .widthIn(min = 90.dp) // Tự động giãn ngang nếu chữ số dài (như số 10)
                         .shadow(6.dp, RoundedCornerShape(24.dp))
                 ) {
                     Text(
                         text = option.toString(),
                         fontSize = 36.sp,
                         fontWeight = FontWeight.Black,
-                        color = Color.White
+                        maxLines = 1,
+                        softWrap = false
                     )
                 }
             }
@@ -138,11 +152,15 @@ fun CalculationUI(
 // Thẻ số thu nhỏ gọn gàng để vừa màn hình ngang
 @Composable
 fun MiniNumberCardWithDots(number: Int) {
-    Surface(
-        color = Color.White,
+    val colorScheme = MaterialTheme.colorScheme
+
+    ElevatedCard(
         shape = RoundedCornerShape(16.dp),
-        shadowElevation = 6.dp,
-        modifier = Modifier.width(80.dp) // Nhỏ hơn thẻ cũ (120dp)
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+        modifier = Modifier.width(80.dp)
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -152,7 +170,7 @@ fun MiniNumberCardWithDots(number: Int) {
                 text = number.toString(),
                 fontSize = 40.sp,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF37474F)
+                color = colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -169,8 +187,8 @@ fun MiniNumberCardWithDots(number: Int) {
                         for (c in 0 until dotsInThisRow) {
                             Box(
                                 modifier = Modifier
-                                    .size(8.dp) // Chấm nhỏ hơn
-                                    .background(Color(0xFF4CAF50), CircleShape)
+                                    .size(8.dp)
+                                    .background(colorScheme.primary, CircleShape) // Chấm tròn sử dụng màu Primary để luôn nổi bật
                             )
                         }
                     }

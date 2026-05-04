@@ -1,18 +1,25 @@
 package com.example.numease.presentation
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -28,83 +35,141 @@ import com.example.numease.manager.ChildSessionManager
 import com.example.numease.presentation.viewmodel.AuthState
 import com.example.numease.presentation.viewmodel.AuthViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSelectionScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
-    onNavigateToParentMain: () -> Unit, // Callback khi bấm vào thẻ Phụ Huynh
-    onNavigateToStudentMain: () -> Unit // Callback khi bấm vào thẻ của Bé
+    onNavigateToParentMain: () -> Unit,
+    onNavigateToStudentMain: () -> Unit
 ) {
     val authState by authViewModel.authState.collectAsState()
     val children = (authState as? AuthState.Authenticated)?.childProfiles ?: emptyList()
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    // Bọc toàn bộ màn hình trong Surface để nhận màu background chuẩn của MD3
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
     ) {
-        Text(
-            text = "Ai đang dùng máy thế nhỉ?",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(40.dp))
-
-        // Grid hiển thị các Profile
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            // 1. ITEM CỐ ĐỊNH: THẺ PHỤ HUYNH (Luôn ở đầu tiên)
-            item {
-                Card(
-                    onClick = {
-                        // Khi Phụ huynh dùng máy -> Xóa Két sắt của bé cho an toàn
-                        authViewModel.childSessionManager.clearSession()
-                        onNavigateToParentMain()
-                    },
-                    modifier = Modifier.aspectRatio(1f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+            Text(
+                text = "Ai đang dùng máy thế nhỉ?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // 1. THẺ PHỤ HUYNH
+                item {
+                    ElevatedCard(
+                        onClick = {
+                            authViewModel.childSessionManager.clearSession()
+                            onNavigateToParentMain()
+                        },
+                        modifier = Modifier.aspectRatio(1f)
                     ) {
-                        // Icon Phụ huynh (Bạn có thể dùng R.drawable...)
-                        Text(text = "👨‍👩‍👧", fontSize = 56.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = "Phụ Huynh", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text(text = "Quản lý", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Avatar Phụ huynh
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Group, // Bạn có thể đổi thành Icons.Default.SupervisorAccount
+                                        contentDescription = "Biểu tượng gia đình",
+                                        modifier = Modifier.size(32.dp),
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = "Phụ Huynh",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Quản lý",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
-            }
 
-            // 2. DANH SÁCH CÁC THẺ CỦA BÉ
-            items(children) { child ->
-                Card(
-                    onClick = {
-                        // Khi chọn Bé -> Lưu vào Két sắt và vào Màn hình Học
-                        authViewModel.childSessionManager.setActiveChild(child)
-                        onNavigateToStudentMain()
-                    },
-                    modifier = Modifier.aspectRatio(1f),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                // 2. DANH SÁCH CÁC THẺ CỦA BÉ
+                items(children) { child ->
+                    ElevatedCard(
+                        onClick = {
+                            authViewModel.childSessionManager.setActiveChild(child)
+                            onNavigateToStudentMain()
+                        },
+                        modifier = Modifier.aspectRatio(1f)
                     ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(text = child.name, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text(text = "Học toán", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            // Avatar của Bé (Lấy chữ cái đầu tiên của tên)
+                            val initial = child.name.firstOrNull()?.uppercase() ?: "B"
+
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                modifier = Modifier.size(64.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = initial,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Text(
+                                text = child.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = "Học toán",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

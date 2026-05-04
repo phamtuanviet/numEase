@@ -1,7 +1,6 @@
 package com.example.numease.presentation.admin.user
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,7 +10,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -26,17 +24,24 @@ fun ManageUsersScreen(
     onNavigateToParents: () -> Unit,
     onNavigateToChildren: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background, // Trả về màu nền gốc sạch sẽ
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Quản lý Người dùng", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         },
         bottomBar = {
-            // Thanh điều hướng dùng chung
-            NavigationBar(containerColor = Color.White) {
+            // Thanh điều hướng chuẩn MD3
+            NavigationBar(
+                containerColor = colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
                 NavigationBarItem(
                     selected = false,
                     onClick = onNavigateToHome,
@@ -50,7 +55,7 @@ fun ManageUsersScreen(
                     label = { Text("Nội dung") }
                 )
                 NavigationBarItem(
-                    selected = true, // Đang ở tab Người dùng
+                    selected = true,
                     onClick = { /* Đang ở đây rồi */ },
                     icon = { Icon(Icons.Default.People, null) },
                     label = { Text("Người dùng") }
@@ -68,14 +73,14 @@ fun ManageUsersScreen(
 
             Text(
                 text = "Hệ thống tài khoản",
-                fontSize = 20.sp,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Black,
-                color = Color(0xFF37474F)
+                color = colorScheme.onBackground
             )
             Text(
                 text = "Chọn nhóm người dùng bạn muốn quản lý.",
-                fontSize = 14.sp,
-                color = Color.Gray,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 32.dp)
             )
 
@@ -84,7 +89,7 @@ fun ManageUsersScreen(
                 title = "Tài khoản Phụ huynh",
                 description = "Quản lý email, trạng thái khóa/mở tài khoản, phân quyền hệ thống.",
                 icon = Icons.Default.SupervisorAccount,
-                color = Color(0xFFFF9800), // Màu cam
+                color = colorScheme.secondary, // Dùng màu Secondary của Theme
                 onClick = onNavigateToParents
             )
 
@@ -95,7 +100,7 @@ fun ManageUsersScreen(
                 title = "Hồ sơ Học sinh",
                 description = "Xem danh sách các bé, độ tuổi, và liên kết với tài khoản phụ huynh.",
                 icon = Icons.Default.ChildCare,
-                color = Color(0xFF9C27B0), // Màu tím
+                color = colorScheme.tertiary, // Dùng màu Tertiary của Theme
                 onClick = onNavigateToChildren
             )
         }
@@ -110,13 +115,19 @@ fun UserTypeCard(
     color: Color,
     onClick: () -> Unit
 ) {
-    Surface(
-        color = Color.White,
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Sử dụng OutlinedCard để đảm bảo nhìn thấy viền rõ ràng trên Emulator
+    OutlinedCard(
+        onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp))
-            .clickable { onClick() }
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = colorScheme.surface
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(colorScheme.outlineVariant)
+        ),
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(20.dp),
@@ -125,21 +136,41 @@ fun UserTypeCard(
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .background(color.copy(alpha = 0.15f), CircleShape),
+                    .background(color.copy(alpha = 0.12f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(32.dp))
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(32.dp)
+                )
             }
 
             Spacer(modifier = Modifier.width(20.dp))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF37474F))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface
+                )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = description, fontSize = 13.sp, color = Color.Gray, lineHeight = 18.sp)
+
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
             }
 
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = colorScheme.outlineVariant
+            )
         }
     }
 }

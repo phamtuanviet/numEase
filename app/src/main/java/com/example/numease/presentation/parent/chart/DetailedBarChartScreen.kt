@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,13 +34,14 @@ fun DetailedBarChartScreen(
 ) {
     val sessions by viewModel.sessions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val colorScheme = MaterialTheme.colorScheme
 
     LaunchedEffect(childId, categoryId) {
         viewModel.loadChartData(childId, categoryId)
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA),
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Biểu đồ Cột (20 bài)", fontWeight = FontWeight.Bold) },
@@ -56,7 +58,7 @@ fun DetailedBarChartScreen(
             }
         } else if (sessions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = Color.Gray)
+                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -67,33 +69,34 @@ fun DetailedBarChartScreen(
             ) {
                 Text(
                     text = "So sánh Số câu đúng / Tổng câu",
-                    fontSize = 20.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F)
+                    color = colorScheme.onBackground
                 )
 
-                // Chú thích biểu đồ
+                // Chú thích biểu đồ động theo Theme
                 Row(
-                    modifier = Modifier.padding(top = 8.dp, bottom = 24.dp),
+                    modifier = Modifier.padding(top = 12.dp, bottom = 24.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Chú thích Cột đúng
-                    Surface(color = Color(0xFF2196F3), shape = RoundedCornerShape(4.dp), modifier = Modifier.size(16.dp)) {}
+                    Surface(color = colorScheme.primary, shape = RoundedCornerShape(4.dp), modifier = Modifier.size(16.dp)) {}
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Câu đúng", fontSize = 14.sp, color = Color.Gray)
+                    Text("Câu đúng", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(24.dp))
 
                     // Chú thích Cột tổng
-                    Surface(color = Color(0xFFE0E0E0), shape = RoundedCornerShape(4.dp), modifier = Modifier.size(16.dp)) {}
+                    Surface(color = colorScheme.surfaceVariant, shape = RoundedCornerShape(4.dp), modifier = Modifier.size(16.dp)) {}
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Tổng số câu", fontSize = 14.sp, color = Color.Gray)
+                    Text("Tổng số câu", style = MaterialTheme.typography.bodySmall, color = colorScheme.onSurfaceVariant)
                 }
 
-                // Khung chứa biểu đồ
-                Surface(
-                    color = Color.White,
+                // Khung chứa biểu đồ (Sử dụng ElevatedCard cho MD3)
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
                     shape = RoundedCornerShape(24.dp),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
@@ -108,10 +111,16 @@ fun DetailedBarChartScreen(
 
 @Composable
 fun CustomBarChart20Sessions(sessions: List<StudySession>) {
-    // 1. Tìm mốc Y cao nhất (Tổng số câu hỏi lớn nhất mà bé từng làm)
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Màu sắc động
+    val barCorrectColor = colorScheme.primary
+    val barTotalColor = colorScheme.surfaceVariant
+    val gridLineColor = colorScheme.outlineVariant
+    val labelTextColor = colorScheme.onSurfaceVariant.toArgb()
+
     val maxQuestions = sessions.maxOfOrNull { it.totalQuestions.toFloat() }?.coerceAtLeast(5f) ?: 5f
 
-    // 2. Hiệu ứng mọc cột từ dưới lên
     var animationProgress by remember { mutableStateOf(0f) }
     LaunchedEffect(sessions) {
         animate(
@@ -129,13 +138,13 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 24.dp, bottom = 24.dp) // Chừa không gian cho trục tọa độ
+                .padding(start = 32.dp, bottom = 24.dp) // Tăng nhẹ padding cho nhãn trục Y
                 .clipToBounds()
         ) {
             val width = size.width
             val height = size.height
 
-            // A. VẼ TRỤC Y VÀ LƯỚI NGANG (Giống hệt biểu đồ đường)
+            // A. VẼ TRỤC Y VÀ LƯỚI NGANG
             val horizontalLines = 5
             for (i in 0..horizontalLines) {
                 val y = height - (i.toFloat() / horizontalLines) * height
@@ -144,18 +153,19 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
                 drawContext.canvas.nativeCanvas.apply {
                     drawText(
                         labelValue.toString(),
-                        -30f,
+                        -35f,
                         y + 10f,
                         android.graphics.Paint().apply {
-                            color = android.graphics.Color.GRAY
-                            textSize = 30f
+                            color = labelTextColor
+                            textSize = 32f
                             textAlign = android.graphics.Paint.Align.RIGHT
+                            typeface = android.graphics.Typeface.DEFAULT_BOLD
                         }
                     )
                 }
 
                 drawLine(
-                    color = Color(0xFFEEEEEE),
+                    color = gridLineColor,
                     start = Offset(0f, y),
                     end = Offset(width, y),
                     strokeWidth = 2f,
@@ -164,36 +174,33 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
             }
 
             // B. TÍNH TOÁN VÀ VẼ CÁC CỘT
-            val maxBars = sessions.size.coerceAtLeast(1) // Ít nhất là 1 để tránh lỗi chia 0
+            val maxBars = sessions.size.coerceAtLeast(1)
             val spacing = width / maxBars
-            val barWidth = spacing * 0.5f // Độ rộng cột bằng 50% khoảng cách
-            val cornerRadius = CornerRadius(12f, 12f) // Bo tròn đỉnh cột
+            val barWidth = spacing * 0.6f // Tăng độ rộng cột một chút để bé dễ nhìn
+            val cornerRadius = CornerRadius(12f, 12f)
 
             sessions.forEachIndexed { index, session ->
-                // Tính toán chiều cao
                 val totalHeight = (session.totalQuestions.toFloat() / maxQuestions) * height
-                // Nhân với animationProgress để cột 'câu đúng' mọc lên từ từ
                 val correctHeight = (session.correctAnswers.toFloat() / maxQuestions) * height * animationProgress
 
                 val x = (index * spacing) + (spacing - barWidth) / 2
-
                 val yTotal = height - totalHeight
                 val yCorrect = height - correctHeight
 
-                // 1. Vẽ cột NỀN (Màu xám - biểu thị Tổng số câu)
+                // 1. Vẽ cột NỀN (Tổng số câu)
                 if (session.totalQuestions > 0) {
                     drawRoundRect(
-                        color = Color(0xFFF5F5F5), // Xám cực nhạt
+                        color = barTotalColor,
                         topLeft = Offset(x, yTotal),
                         size = Size(barWidth, totalHeight),
                         cornerRadius = cornerRadius
                     )
                 }
 
-                // 2. Vẽ cột CHÍNH (Màu xanh dương - biểu thị Số câu đúng)
+                // 2. Vẽ cột CHÍNH (Số câu đúng)
                 if (session.correctAnswers > 0) {
                     drawRoundRect(
-                        color = Color(0xFF2196F3), // Xanh dương
+                        color = barCorrectColor,
                         topLeft = Offset(x, yCorrect),
                         size = Size(barWidth, correctHeight),
                         cornerRadius = cornerRadius

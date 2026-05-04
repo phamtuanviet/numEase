@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -42,20 +43,16 @@ fun ManageChildrenScreen(
     viewModel: ManageChildrenViewModel = hiltViewModel(),
     onBack: () -> Unit,
     onNavigateToStats: (String) -> Unit
-//    onNavigateToAddChild: () -> Unit,
-//    onNavigateToEditChild: (childId: String) -> Unit
 ) {
     val children by viewModel.children.collectAsState()
     val recentStats by viewModel.currentChildStats.collectAsState()
     val showFormDialog by viewModel.showFormDialog.collectAsState()
 
-
+    val colorScheme = MaterialTheme.colorScheme
 
     // PagerState: Số lượng trang = Số bé + 1 (Trang cuối cùng để Thêm Bé)
     val pageCount = children.size + 1
     val pagerState = rememberPagerState(pageCount = { pageCount })
-
-
 
     // Lắng nghe sự kiện lướt Pager. Khi currentPage thay đổi -> Tải lại thống kê
     LaunchedEffect(pagerState.currentPage, children) {
@@ -70,8 +67,10 @@ fun ManageChildrenScreen(
         Dialog(onDismissRequest = { viewModel.closeForm() }) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp)
+                color = colorScheme.surface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp)
             ) {
                 ChildFormContent(viewModel = viewModel)
             }
@@ -79,7 +78,7 @@ fun ManageChildrenScreen(
     }
 
     Scaffold(
-        containerColor = Color(0xFFF5F7FA), // Nền xám rất nhạt, sang trọng
+        containerColor = colorScheme.background, // Tự động nền sáng/tối
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Quản lý Hồ sơ", fontWeight = FontWeight.Bold) },
@@ -88,7 +87,9 @@ fun ManageChildrenScreen(
                         Icon(Icons.Default.ArrowBack, contentDescription = "Quay lại")
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
             )
         }
     ) { paddingValues ->
@@ -106,7 +107,7 @@ fun ManageChildrenScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 48.dp), // Để lòi mép thẻ 2 bên ra một chút
+                contentPadding = PaddingValues(horizontal = 48.dp),
                 pageSpacing = 16.dp
             ) { page ->
                 if (page < children.size) {
@@ -131,15 +132,16 @@ fun ManageChildrenScreen(
             ) {
                 repeat(pageCount) { index ->
                     val isSelected = pagerState.currentPage == index
-                    val width by animateFloatAsState(if (isSelected) 24f else 8f)
-                    val color = if (isSelected) Color(0xFF1976D2) else Color.LightGray
+                    val width by animateFloatAsState(if (isSelected) 24f else 8f, label = "dot_width")
+                    // Màu chấm động theo Theme
+                    val dotColor = if (isSelected) colorScheme.primary else colorScheme.outlineVariant
 
                     Box(
                         modifier = Modifier
                             .padding(horizontal = 4.dp)
                             .height(8.dp)
                             .width(width.dp)
-                            .background(color, CircleShape)
+                            .background(dotColor, CircleShape)
                     )
                 }
             }
@@ -152,18 +154,17 @@ fun ManageChildrenScreen(
             if (pagerState.currentPage < children.size) {
                 val currentChildId = children[pagerState.currentPage].id
 
-                Surface(
-                    color = Color.White,
+                ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = colorScheme.surface
+                    ),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .weight(1f)
-                        .shadow(4.dp, RoundedCornerShape(24.dp))
-                        // THÊM: Khi nhấn vào vùng biểu đồ sẽ chuyển màn hình
-                        .clickable {
-                            currentChildId?.let { onNavigateToStats(it) }
-                        }
+                        .clickable { currentChildId?.let { onNavigateToStats(it) } }
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Row(
@@ -173,15 +174,14 @@ fun ManageChildrenScreen(
                         ) {
                             Text(
                                 text = "Kết quả 10 bài gần nhất",
-                                fontSize = 18.sp,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF37474F)
+                                color = colorScheme.onSurface
                             )
-                            // Thêm một icon nhỏ để gợi ý người dùng có thể nhấn vào
                             Icon(
                                 imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = Color.LightGray
+                                contentDescription = "Xem chi tiết",
+                                tint = colorScheme.onSurfaceVariant
                             )
                         }
 
@@ -189,7 +189,7 @@ fun ManageChildrenScreen(
 
                         if (recentStats.isEmpty()) {
                             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text("Bé chưa có dữ liệu học tập.", color = Color.Gray)
+                                Text("Bé chưa có dữ liệu học tập.", color = colorScheme.onSurfaceVariant)
                             }
                         } else {
                             RecentStatsBarChart(sessions = recentStats)
@@ -205,20 +205,24 @@ fun ManageChildrenScreen(
 // --- THẺ THÔNG TIN BÉ ---
 @Composable
 fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
-    // Phân tích Avatar dựa trên giới tính
-    val (avatar, bgColor) = when (child.gender?.uppercase()) {
-        "MALE" -> Pair("👦", Color(0xFFE3F2FD)) // Xanh dương
-        "FEMALE" -> Pair("👧", Color(0xFFFCE4EC)) // Hồng
-        else -> Pair("🐻", Color(0xFFFFF3E0)) // Cam (Trung tính)
+    val colorScheme = MaterialTheme.colorScheme
+
+    // Ánh xạ giới tính vào hệ màu Container của Theme
+    val (avatar, containerColor, contentColor) = when (child.gender?.uppercase()) {
+        "MALE" -> Triple("👦", colorScheme.secondaryContainer, colorScheme.onSecondaryContainer)
+        "FEMALE" -> Triple("👧", colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer)
+        else -> Triple("🦊", colorScheme.primaryContainer, colorScheme.onPrimaryContainer)
     }
 
-    Surface(
-        color = bgColor,
+    ElevatedCard(
         shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = containerColor
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)
-            .shadow(6.dp, RoundedCornerShape(32.dp))
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             // Nút sửa thông tin ở góc trên phải
@@ -227,9 +231,9 @@ fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp)
-                    .background(Color.White.copy(alpha = 0.6f), CircleShape)
+                    .background(colorScheme.surface.copy(alpha = 0.5f), CircleShape)
             ) {
-                Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = Color(0xFF1565C0))
+                Icon(Icons.Default.Edit, contentDescription = "Sửa", tint = contentColor)
             }
 
             Column(
@@ -241,15 +245,14 @@ fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = child.name,
-                    fontSize = 22.sp,
+                    style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
-                    color = Color(0xFF37474F)
+                    color = contentColor
                 )
-                // Hiển thị Tuổi hoặc Giới tính nếu có
                 Text(
                     text = "Giới tính: ${if(child.gender=="MALE") "Nam" else if(child.gender=="FEMALE") "Nữ" else "Khác"}",
-                    fontSize = 14.sp,
-                    color = Color.DarkGray
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor.copy(alpha = 0.8f)
                 )
             }
         }
@@ -259,15 +262,19 @@ fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
 // --- THẺ THÊM BÉ ---
 @Composable
 fun AddChildCard(onClick: () -> Unit) {
-    Surface(
-        color = Color.White,
+    val colorScheme = MaterialTheme.colorScheme
+
+    ElevatedCard(
         shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)
             .clickable { onClick() }
     ) {
-        // Viền đứt nét (Tùy chọn: Dùng Canvas vẽ nét đứt nếu muốn, ở đây dùng Box cho nhẹ)
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -276,22 +283,33 @@ fun AddChildCard(onClick: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .size(64.dp)
-                        .background(Color(0xFFE8F5E9), CircleShape),
+                        .background(colorScheme.primaryContainer, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Thêm", tint = Color(0xFF2E7D32), modifier = Modifier.size(32.dp))
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Thêm",
+                        tint = colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(32.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Thêm hồ sơ", fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                Text(
+                    text = "Thêm hồ sơ",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
 
-// --- BIỂU ĐỒ CỘT (BAR CHART) TÙY CHỈNH ---
+// --- BIỂU ĐỒ CỘT (BAR CHART) ---
 @Composable
 fun RecentStatsBarChart(sessions: List<StudySession>) {
-    // Tính sao cho từng bài
+    val colorScheme = MaterialTheme.colorScheme
+
     val starData = sessions.map { session ->
         when {
             session.totalQuestions == 0 -> 0f
@@ -302,10 +320,9 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
         }
     }
 
-    // Hiệu ứng mọc cột từ dưới lên
     var animationProgress by remember { mutableStateOf(0f) }
     LaunchedEffect(sessions) {
-        animationProgress = 0f // Reset khi đổi thẻ
+        animationProgress = 0f
         animate(
             initialValue = 0f,
             targetValue = 1f,
@@ -313,21 +330,29 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
         ) { value, _ -> animationProgress = value }
     }
 
+    // Lấy màu outline cho đường đứt nét
+    val gridLineColor = colorScheme.outlineVariant
+
+    // Lấy màu hệ thống cho các cột để đảm bảo luôn tương phản tốt ở cả Dark/Light Mode
+    val color3Star = colorScheme.primary
+    val color2Star = colorScheme.tertiary
+    val color1Star = colorScheme.error
+    val color0Star = colorScheme.surfaceVariant
+
     Canvas(modifier = Modifier.fillMaxSize()) {
         val maxStars = 3f
         val maxBars = 10
         val width = size.width
         val height = size.height
 
-        // Tính toán khoảng cách
-        val barWidth = (width / maxBars) * 0.6f // Chiều rộng cột
-        val spacing = width / maxBars // Khoảng cách giữa tâm các cột
+        val barWidth = (width / maxBars) * 0.6f
+        val spacing = width / maxBars
 
-        // Vẽ 3 đường vạch ngang đứt nét (Mốc 1, 2, 3 sao)
+        // Vẽ lưới đứt nét
         for (i in 1..3) {
             val y = height - (i / maxStars) * height
             drawLine(
-                color = Color(0xFFEEEEEE),
+                color = gridLineColor,
                 start = Offset(0f, y),
                 end = Offset(width, y),
                 strokeWidth = 2f,
@@ -335,32 +360,34 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
             )
         }
 
-        // Vẽ các cột (Tối đa 10 cột)
+        // Vẽ cột
         starData.forEachIndexed { index, stars ->
             val barHeight = (stars / maxStars) * height * animationProgress
             val x = (index * spacing) + (spacing - barWidth) / 2
             val y = height - barHeight
 
-            // Chọn màu: 3 sao -> Xanh lá, 2 sao -> Vàng, 1 sao -> Cam, 0 sao -> Xám
             val barColor = when (stars) {
-                3f -> Color(0xFF4CAF50)
-                2f -> Color(0xFFFFCA28)
-                1f -> Color(0xFFFF7043)
-                else -> Color(0xFFE0E0E0)
+                3f -> color3Star
+                2f -> color2Star
+                1f -> color1Star
+                else -> color0Star
             }
 
             drawRoundRect(
                 color = barColor,
                 topLeft = Offset(x, y),
                 size = Size(barWidth, barHeight),
-                cornerRadius = CornerRadius(16f, 16f) // Bo tròn đỉnh cột
+                cornerRadius = CornerRadius(16f, 16f)
             )
         }
     }
 }
 
+// --- FORM DIALOG THÊM/SỬA ---
 @Composable
 fun ChildFormContent(viewModel: ManageChildrenViewModel) {
+    val colorScheme = MaterialTheme.colorScheme
+
     val isEditing = viewModel.editingChildId.collectAsState().value != null
     val name by viewModel.formName.collectAsState()
     val gender by viewModel.formGender.collectAsState()
@@ -373,17 +400,18 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
     ) {
         Text(
             text = if (isEditing) "Sửa thông tin" else "Thêm bé mới",
-            fontSize = 20.sp,
+            style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = colorScheme.onSurface
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Avatar vui nhộn dựa trên giới tính
         Text(
             text = if (gender == "MALE") "👦" else "👧",
             fontSize = 64.sp,
-            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape).padding(16.dp)
+            modifier = Modifier
+                .background(colorScheme.surfaceVariant, CircleShape)
+                .padding(16.dp)
         )
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -396,7 +424,6 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
         )
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Nút chọn Giới tính
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             GenderOptionCard(
                 label = "Nam",
@@ -423,7 +450,6 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
         )
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Nút Lưu và Hủy
         if (isLoading) {
             CircularProgressIndicator()
         } else {
@@ -432,7 +458,7 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
                     onClick = { viewModel.closeForm() },
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Hủy", color = Color.Gray)
+                    Text("Hủy", color = colorScheme.onSurfaceVariant)
                 }
                 Button(
                     onClick = { viewModel.saveChild() },
@@ -454,8 +480,9 @@ fun GenderOptionCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val containerColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    val colorScheme = MaterialTheme.colorScheme
+    val containerColor = if (isSelected) colorScheme.primary else colorScheme.surfaceVariant
+    val contentColor = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant
 
     Surface(
         onClick = onClick,
