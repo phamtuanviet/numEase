@@ -66,6 +66,34 @@ class OnboardingViewModel @Inject constructor(
         }
     }
 
+    fun createChildProfileAndPin(name: String, age: Int, gender: String, pin: String) {
+        viewModelScope.launch {
+            _uiState.value = OnboardingState.Loading
+            try {
+                val user = auth.currentUserOrNull() ?: throw Exception("Chưa đăng nhập")
+
+                // 1. Tạo hồ sơ bé (Như cũ)
+                val childData = ChildProfile(
+                    accountId = user.id,
+                    name = name,
+                    age = age,
+                    currentLevel = 1,
+                    gender = gender,
+                )
+                postgrest["child_profiles"].insert(childData)
+
+                // 2. MỚI THÊM: Cập nhật mã PIN vào bảng user_profiles
+                postgrest["user_profiles"].update(
+                    { set("parent_pin", pin) }
+                ) { filter { eq("id", user.id) } }
+
+                _uiState.value = OnboardingState.ProfileCreated
+            } catch (e: Exception) {
+                _uiState.value = OnboardingState.Error(e.message ?: "Lỗi khi tạo hồ sơ")
+            }
+        }
+    }
+
     fun resetState() {
         _uiState.value = OnboardingState.Idle
     }

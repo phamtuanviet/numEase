@@ -86,7 +86,7 @@ fun ManageUsersScreen(
 
             // Thẻ 1: Quản lý Phụ huynh
             UserTypeCard(
-                title = "Tài khoản Phụ huynh",
+                title = "Tài khoản hệ thống ",
                 description = "Quản lý email, trạng thái khóa/mở tài khoản, phân quyền hệ thống.",
                 icon = Icons.Default.SupervisorAccount,
                 color = colorScheme.secondary, // Dùng màu Secondary của Theme

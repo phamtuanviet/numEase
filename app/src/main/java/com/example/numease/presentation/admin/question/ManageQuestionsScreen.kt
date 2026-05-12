@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,7 +31,8 @@ fun ManageQuestionsScreen(
     level: Int,
     viewModel: ManageQuestionsViewModel = hiltViewModel(),
     onBack: () -> Unit,
-    onNavigateToAddQuestion: () -> Unit
+    onNavigateToAddQuestion: () -> Unit,
+    onEditQuestion: (exerciseId: String, type: String) -> Unit
 ) {
     val questions by viewModel.questions.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -79,11 +81,24 @@ fun ManageQuestionsScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(questions) { exercise ->
+                    // Truyền thêm hàm onEdit vào mỗi Card
                     when (val content = exercise.content) {
-                        is CountingContent -> CountingQuestionCard(content, categoryThemeColor)
-                        is ComparingContent -> ComparingQuestionCard(content, categoryThemeColor)
-                        is CalculationContent -> CalculationQuestionCard(content, categoryThemeColor)
-                        is DragDropContent -> DragDropQuestionCard(content, categoryThemeColor)
+                        is CountingContent -> CountingQuestionCard(
+                            content, categoryThemeColor,
+                            onEdit = { onEditQuestion(exercise.id, "COUNTING") }
+                        )
+                        is ComparingContent -> ComparingQuestionCard(
+                            content, categoryThemeColor,
+                            onEdit = { onEditQuestion(exercise.id, "COMPARING") }
+                        )
+                        is CalculationContent -> CalculationQuestionCard(
+                            content, categoryThemeColor,
+                            onEdit = { onEditQuestion(exercise.id, "CALCULATION") }
+                        )
+                        is DragDropContent -> DragDropQuestionCard(
+                            content, categoryThemeColor,
+                            onEdit = { onEditQuestion(exercise.id, "DRAG_DROP") }
+                        )
                     }
                 }
             }
@@ -95,6 +110,7 @@ fun ManageQuestionsScreen(
 @Composable
 fun QuestionCardContainer(
     title: String,
+    onEdit: () -> Unit, // Thêm callback này
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -107,22 +123,39 @@ fun QuestionCardContainer(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Đề bài: $title",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = colorScheme.onSurface
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Đề bài: $title",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface,
+                    modifier = Modifier.weight(1f) // Để text không đè lên nút edit
+                )
+
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Sửa câu hỏi",
+                        tint = colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             content()
         }
     }
 }
 
 @Composable
-fun CountingQuestionCard(content: CountingContent, color: Color) {
+fun CountingQuestionCard(content: CountingContent, color: Color,onEdit: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    QuestionCardContainer(title = content.instruction.text) {
+    QuestionCardContainer(title = content.instruction.text,
+        onEdit = onEdit) {
         val emoji = getEmojiForObject(content.objectType)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = "Vật thể: $emoji (${content.objectType})", style = MaterialTheme.typography.bodyMedium, color = colorScheme.onSurfaceVariant)
@@ -136,8 +169,8 @@ fun CountingQuestionCard(content: CountingContent, color: Color) {
 }
 
 @Composable
-fun ComparingQuestionCard(content: ComparingContent, color: Color) {
-    QuestionCardContainer(title = content.instruction.text) {
+fun ComparingQuestionCard(content: ComparingContent, color: Color,onEdit: () -> Unit) {
+    QuestionCardContainer(title = content.instruction.text,onEdit = onEdit) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Text(text = "${content.leftValue}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(16.dp))
@@ -151,9 +184,9 @@ fun ComparingQuestionCard(content: ComparingContent, color: Color) {
 }
 
 @Composable
-fun CalculationQuestionCard(content: CalculationContent, color: Color) {
+fun CalculationQuestionCard(content: CalculationContent, color: Color,onEdit: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    QuestionCardContainer(title = content.instruction.text) {
+    QuestionCardContainer(title = content.instruction.text,onEdit = onEdit) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
             Text(text = "${content.leftValue} ${content.operator} ${content.rightValue} =", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(12.dp))
@@ -167,9 +200,9 @@ fun CalculationQuestionCard(content: CalculationContent, color: Color) {
 }
 
 @Composable
-fun DragDropQuestionCard(content: DragDropContent, color: Color) {
+fun DragDropQuestionCard(content: DragDropContent, color: Color,onEdit: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    QuestionCardContainer(title = content.instruction.text) {
+    QuestionCardContainer(title = content.instruction.text,onEdit = onEdit) {
         content.correctMapping.forEach { (dragId, zoneId) ->
             val dragLabel = content.draggables.find { it.id == dragId }?.label ?: "?"
             val zoneLabel = content.dropZones.find { it.id == zoneId }?.label ?: "?"

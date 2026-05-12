@@ -13,12 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.UserPreferencesViewModel
 import com.example.numease.presentation.component.UserGrowthLineChart
@@ -217,7 +215,6 @@ fun AdminHomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(280.dp)
-                    // THÊM: Viền rõ ràng chuẩn MD3 để không bị trùng nền
                     .border(1.dp, colorScheme.outlineVariant, RoundedCornerShape(24.dp))
             ) {
                 if (isLoading || growthData.isEmpty()) {
@@ -225,25 +222,12 @@ fun AdminHomeScreen(
                         CircularProgressIndicator()
                     }
                 } else {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Box(modifier = Modifier.weight(1f)) {
-                            UserGrowthLineChart(data = growthData)
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            growthData.filterIndexed { index, _ -> index % 2 == 0 }.forEach {
-                                Text(
-                                    text = it.first,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(top = 24.dp, bottom = 12.dp, end = 24.dp) // Không cần padding start vì đã có yAxisPadding
+                    ) {
+                        UserGrowthLineChart(data = growthData)
                     }
                 }
             }

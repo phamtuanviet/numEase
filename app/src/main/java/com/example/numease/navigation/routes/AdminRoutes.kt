@@ -48,3 +48,17 @@ object ManageChildrenAdminRoute
 
 @Serializable
 data class ChildDetailAdminRoute(val childId: String)
+
+
+
+@Serializable
+data class EditCountingQuestionRoute(val exerciseId: String, val categoryId: Int, val level: Int)
+
+@Serializable
+data class EditComparingQuestionRoute(val exerciseId: String, val categoryId: Int, val level: Int)
+
+@Serializable
+data class EditCalculationQuestionRoute(val exerciseId: String, val categoryId: Int, val categoryCode: String, val level: Int)
+
+@Serializable
+data class EditDragDropQuestionRoute(val exerciseId: String, val categoryId: Int, val level: Int)

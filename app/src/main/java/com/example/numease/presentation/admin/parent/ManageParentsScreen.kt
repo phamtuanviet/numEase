@@ -2,7 +2,6 @@ package com.example.numease.presentation.admin.parent
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
@@ -15,16 +14,17 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.ChildProfile
 
@@ -35,6 +35,7 @@ fun ManageParentsScreen(
     onBack: () -> Unit,
     onChildClick: (String) -> Unit
 ) {
+    val currentTab by viewModel.currentTab.collectAsState()
     val parents by viewModel.parents.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -44,6 +45,9 @@ fun ManageParentsScreen(
     val colorScheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
 
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var dialogActionType by remember { mutableStateOf("") } // "PROMOTE" hoặc "TOGGLE_BAN"
+    var selectedUser by remember { mutableStateOf<ParentUser?>(null) }
 
     Scaffold(
         containerColor = colorScheme.background,
@@ -51,48 +55,73 @@ fun ManageParentsScreen(
             Surface(
                 color = colorScheme.surface,
                 tonalElevation = 3.dp,
-                modifier = Modifier.statusBarsPadding()
+                modifier = Modifier
+                    .statusBarsPadding()
                     .pointerInput(Unit) {
                         detectTapGestures(onPress = { focusManager.clearFocus() })
                     }
             ) {
                 Column {
                     CenterAlignedTopAppBar(
-                        title = { Text("Tài khoản Phụ huynh", fontWeight = FontWeight.Bold) },
+                        title = { Text("Tài khoản Hệ thống", fontWeight = FontWeight.Bold) },
                         navigationIcon = {
                             IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                         }
                     )
+
+                    // --- TAB ROW CHUYỂN ĐỔI GIỮA 3 ROLE ---
+                    TabRow(
+                        selectedTabIndex = currentTab.ordinal,
+                        containerColor = colorScheme.surface,
+                        contentColor = colorScheme.primary,
+                        indicator = { tabPositions ->
+                            TabRowDefaults.SecondaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(tabPositions[currentTab.ordinal]),
+                                color = colorScheme.primary,
+                                height = 3.dp
+                            )
+                        }
+                    ) {
+                        AccountTab.entries.forEach { tab ->
+                            Tab(
+                                selected = currentTab == tab,
+                                onClick = {
+                                    focusManager.clearFocus()
+                                    viewModel.onTabSelected(tab)
+                                },
+                                text = {
+                                    Text(
+                                        text = tab.title,
+                                        fontWeight = if (currentTab == tab) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            )
+                        }
+                    }
+
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { viewModel.onSearchChange(it) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                        placeholder = { Text("Tìm theo email...") },
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp, top = 8.dp),
+                        placeholder = { Text("Tìm theo email...") }, // Tất cả đều có email
                         leadingIcon = { Icon(Icons.Default.Search, null) },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Search // Hiển thị nút "Tìm kiếm" thay vì nút "Enter"
-                        ),
-                        keyboardActions = KeyboardActions(
-                            onSearch = {
-                                focusManager.clearFocus() // Ẩn bàn phím khi nhấn nút Search
-                            }
-                        ),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = colorScheme.outlineVariant
-                        )
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { focusManager.clearFocus() }),
+                        colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = colorScheme.outlineVariant)
                     )
                 }
             }
         }
     ) { paddingValues ->
-        Column(modifier = Modifier
-            .fillMaxSize()
-            .padding(paddingValues)) {
-
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
             if (isLoading) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
@@ -105,26 +134,42 @@ fun ManageParentsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 16.dp)
-                    // Hoặc thêm vào đây để khi chạm vào khoảng trống giữa các Card sẽ ẩn phím
                     .pointerInput(Unit) {
                         detectTapGestures(onTap = { focusManager.clearFocus() })
                     },
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
             ) {
-                items(parents) { parent ->
+                if (parents.isEmpty() && !isLoading) {
+                    item { Text("Không tìm thấy dữ liệu.", color = Color.Gray, modifier = Modifier.padding(16.dp)) }
+                }
+                items(parents) { user ->
                     ParentUserCard(
-                        parent = parent,
+                        parent = user,
                         onExpand = {
-                            focusManager.clearFocus() // Tắt phím khi nhấn mở rộng
-                            viewModel.loadChildrenForParent(parent.id, it)
+                            focusManager.clearFocus()
+                            viewModel.loadChildrenForParent(user.id, it)
                         },
-                        onChildClick = onChildClick
+                        onChildClick = onChildClick,
+
+                        // Truyền callback khi Admin bấm nút trong Menu
+                        onPromoteClick = {
+                            selectedUser = user
+                            dialogActionType = "PROMOTE"
+                            showConfirmDialog = true
+                        },
+                        onToggleBanClick = {
+                            selectedUser = user
+                            dialogActionType = "TOGGLE_BAN"
+                            showConfirmDialog = true
+                        }
                     )
                 }
             }
 
-            // --- THANH PHÂN TRANG CHUẨN MD3 ---
+
+
+            // --- THANH PHÂN TRANG ---
             Surface(
                 color = colorScheme.surface,
                 tonalElevation = 8.dp,
@@ -138,7 +183,7 @@ fun ManageParentsScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "Tổng: $totalCount user",
+                        "Tổng: $totalCount kết quả",
                         style = MaterialTheme.typography.bodySmall,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -165,6 +210,39 @@ fun ManageParentsScreen(
                 }
             }
         }
+        if (showConfirmDialog && selectedUser != null) {
+            val userEmail = selectedUser!!.email ?: "Tài khoản này"
+            val isCurrentlyBanned = selectedUser!!.isBanned
+
+            val title = if (dialogActionType == "PROMOTE") "Cấp quyền Admin"
+            else if (isCurrentlyBanned) "Mở khóa tài khoản" else "Khóa tài khoản"
+
+            val message = if (dialogActionType == "PROMOTE") "Bạn có chắc chắn muốn cấp quyền ADMIN cho $userEmail? Tài khoản này sẽ có quyền quản trị toàn bộ hệ thống."
+            else if (isCurrentlyBanned) "Bạn muốn mở khóa cho $userEmail để họ tiếp tục sử dụng app?"
+            else "Bạn có chắc muốn KHÓA $userEmail? Người này sẽ bị văng khỏi app và không thể đăng nhập lại."
+
+            AlertDialog(
+                onDismissRequest = { showConfirmDialog = false },
+                title = { Text(title, fontWeight = FontWeight.Bold) },
+                text = { Text(message) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            if (dialogActionType == "PROMOTE") {
+                                viewModel.promoteToAdmin(selectedUser!!.id) { showConfirmDialog = false }
+                            } else {
+                                viewModel.toggleBanUser(selectedUser!!.id, isCurrentlyBanned) { showConfirmDialog = false }
+                            }
+                        }
+                    ) {
+                        Text("Đồng ý", color = if (dialogActionType == "PROMOTE") Color.Blue else Color.Red)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showConfirmDialog = false }) { Text("Hủy") }
+                }
+            )
+        }
     }
 }
 
@@ -172,21 +250,33 @@ fun ManageParentsScreen(
 fun ParentUserCard(
     parent: ParentUser,
     onExpand: ((List<ChildProfile>) -> Unit) -> Unit,
-    onChildClick: (String) -> Unit
+    onChildClick: (String) -> Unit,
+    // THÊM 2 CALLBACK NÀY
+    onPromoteClick: () -> Unit,
+    onToggleBanClick: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var menuExpanded by remember { mutableStateOf(false) } // State cho Dropdown Menu
     var childrenList by remember { mutableStateOf<List<ChildProfile>>(emptyList()) }
     var isChildLoading by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
 
+    // Làm mờ thẻ nếu tài khoản bị khóa
+    val cardAlpha = if (parent.isBanned) 0.5f else 1f
+
     OutlinedCard(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(),
+            .animateContentSize()
+            .alpha(cardAlpha), // Áp dụng độ mờ
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surface),
+        colors = CardDefaults.outlinedCardColors(
+            containerColor = if (parent.isBanned) colorScheme.surfaceVariant else colorScheme.surface
+        ),
         border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(colorScheme.outlineVariant)
+            brush = androidx.compose.ui.graphics.SolidColor(
+                if (parent.isBanned) colorScheme.error else colorScheme.outlineVariant
+            )
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -205,53 +295,99 @@ fun ParentUserCard(
                         parent.email ?: "Unknown Email",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = colorScheme.onSurface
+                        // Gạch ngang email nếu bị khóa
+                        textDecoration = if (parent.isBanned) androidx.compose.ui.text.style.TextDecoration.LineThrough else null
                     )
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
-                        // Badge hiển thị Role
-                        val roleColor = if (parent.role == "ADMIN") colorScheme.error else colorScheme.primary
-                        Surface(
-                            color = roleColor.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(6.dp)
-                        ) {
+                        val roleColor = when (parent.role) {
+                            "ADMIN" -> colorScheme.error
+                            "STUDENT" -> colorScheme.tertiary
+                            else -> colorScheme.primary
+                        }
+
+                        Surface(color = roleColor.copy(alpha = 0.1f), shape = RoundedCornerShape(6.dp)) {
                             Text(
-                                text = parent.role ?: "USER",
+                                text = if (parent.isBanned) "ĐÃ BỊ KHÓA" else (parent.role ?: "PARENT"),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = roleColor,
+                                color = if (parent.isBanned) colorScheme.error else roleColor,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
-                            "Ngày tạo: ${parent.createdAt?.take(10) ?: "N/A"}",
+                            "Tạo: ${parent.createdAt?.take(10) ?: "N/A"}",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                IconButton(onClick = {
-                    expanded = !expanded
-                    if (expanded && childrenList.isEmpty()) {
-                        isChildLoading = true
-                        onExpand {
-                            childrenList = it
-                            isChildLoading = false
+
+                if (parent.role != "ADMIN") {
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "Tùy chọn")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Cấp quyền Admin") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onPromoteClick()
+                                },
+                                leadingIcon = { Icon(Icons.Default.AdminPanelSettings, null) }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (parent.isBanned) "Mở khóa tài khoản" else "Khóa tài khoản",
+                                        color = colorScheme.error
+                                    )
+                                },
+                                onClick = {
+                                    menuExpanded = false
+                                    onToggleBanClick()
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        if (parent.isBanned) Icons.Default.LockOpen else Icons.Default.Block,
+                                        null,
+                                        tint = colorScheme.error
+                                    )
+                                }
+                            )
                         }
                     }
-                }) {
-                    Icon(
-                        if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = "Mở rộng"
-                    )
+                }
+
+                // CHỈ HIỂN THỊ NÚT EXPAND NẾU LÀ PARENT
+                if (parent.role == "PARENT") {
+                    IconButton(onClick = {
+                        expanded = !expanded
+                        if (expanded && childrenList.isEmpty()) {
+                            isChildLoading = true
+                            onExpand {
+                                childrenList = it
+                                isChildLoading = false
+                            }
+                        }
+                    }) {
+                        Icon(
+                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = "Mở rộng"
+                        )
+                    }
                 }
             }
 
-            if (expanded) {
+            if (expanded && parent.role == "PARENT") {
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 12.dp),
                     thickness = 0.5.dp,

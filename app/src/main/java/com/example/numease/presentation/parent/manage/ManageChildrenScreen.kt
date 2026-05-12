@@ -28,8 +28,11 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -305,10 +308,14 @@ fun AddChildCard(onClick: () -> Unit) {
     }
 }
 
-// --- BIỂU ĐỒ CỘT (BAR CHART) ---
 @Composable
 fun RecentStatsBarChart(sessions: List<StudySession>) {
     val colorScheme = MaterialTheme.colorScheme
+
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = MaterialTheme.typography.labelMedium.copy(
+        color = colorScheme.onSurfaceVariant
+    )
 
     val starData = sessions.map { session ->
         when {
@@ -330,10 +337,7 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
         ) { value, _ -> animationProgress = value }
     }
 
-    // Lấy màu outline cho đường đứt nét
     val gridLineColor = colorScheme.outlineVariant
-
-    // Lấy màu hệ thống cho các cột để đảm bảo luôn tương phản tốt ở cả Dark/Light Mode
     val color3Star = colorScheme.primary
     val color2Star = colorScheme.tertiary
     val color1Star = colorScheme.error
@@ -342,29 +346,60 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val maxStars = 3f
         val maxBars = 10
-        val width = size.width
-        val height = size.height
 
-        val barWidth = (width / maxBars) * 0.6f
-        val spacing = width / maxBars
+        // 1. DÀNH KHOẢNG TRỐNG (PADDING) CHO TRỤC X VÀ Y
+        val yAxisPadding = 80.dp.toPx() // Khoảng trống bên trái cho Trục Y (0⭐, 1⭐,...)
+        val xAxisPadding = 60.dp.toPx() // Khoảng trống bên dưới cho Trục X (Lần 1, 2,...)
 
-        // Vẽ lưới đứt nét
-        for (i in 1..3) {
-            val y = height - (i / maxStars) * height
-            drawLine(
-                color = gridLineColor,
-                start = Offset(0f, y),
-                end = Offset(width, y),
-                strokeWidth = 2f,
-                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+        // Không gian thực tế để vẽ cột (đã trừ padding)
+        val drawableWidth = size.width - yAxisPadding
+        val drawableHeight = size.height - xAxisPadding
+
+        val barWidth = (drawableWidth / maxBars) * 0.6f
+        val spacing = drawableWidth / maxBars
+
+        // 2. VẼ TRỤC Y (SỐ SAO) VÀ LƯỚI
+        for (i in 0..3) {
+            val y = drawableHeight - (i / maxStars) * drawableHeight
+
+            // Vẽ lưới đứt nét ngang (bỏ qua đường ở mốc 0)
+            if (i > 0) {
+                drawLine(
+                    color = gridLineColor,
+                    start = Offset(yAxisPadding, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 2f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                )
+            }
+
+            // Vẽ chữ trục Y (VD: "1 ⭐")
+            val yLabel = "$i ⭐"
+            val textLayoutResult = textMeasurer.measure(text = yLabel, style = textStyle)
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(
+                    x = yAxisPadding - textLayoutResult.size.width - 24f, // Lùi về bên trái 24px để cách đường lưới
+                    y = y - textLayoutResult.size.height / 2f // Căn giữa theo chiều dọc
+                )
             )
         }
 
-        // Vẽ cột
+        // Vẽ đường gạch ngang đậm nét làm trục X (Mốc 0)
+        drawLine(
+            color = gridLineColor,
+            start = Offset(yAxisPadding, drawableHeight),
+            end = Offset(size.width, drawableHeight),
+            strokeWidth = 4f
+        )
+
+        // 3. VẼ CỘT VÀ TRỤC X (SỐ THỨ TỰ LẦN CHƠI)
         starData.forEachIndexed { index, stars ->
-            val barHeight = (stars / maxStars) * height * animationProgress
-            val x = (index * spacing) + (spacing - barWidth) / 2
-            val y = height - barHeight
+            val barHeight = (stars / maxStars) * drawableHeight * animationProgress
+
+            // Tọa độ X của cột phải cộng thêm yAxisPadding để dịch sang phải
+            val x = yAxisPadding + (index * spacing) + (spacing - barWidth) / 2
+            val y = drawableHeight - barHeight
 
             val barColor = when (stars) {
                 3f -> color3Star
@@ -373,11 +408,23 @@ fun RecentStatsBarChart(sessions: List<StudySession>) {
                 else -> color0Star
             }
 
+            // Vẽ Cột
             drawRoundRect(
                 color = barColor,
                 topLeft = Offset(x, y),
                 size = Size(barWidth, barHeight),
                 cornerRadius = CornerRadius(16f, 16f)
+            )
+
+            // Vẽ chữ trục X (Chỉ số lần chơi, VD: 1, 2, 3...)
+            val xLabel = "${index + 1}"
+            val textLayoutResult = textMeasurer.measure(text = xLabel, style = textStyle)
+            drawText(
+                textLayoutResult = textLayoutResult,
+                topLeft = Offset(
+                    x = x + barWidth / 2f - textLayoutResult.size.width / 2f, // Căn giữa ngay dưới cột
+                    y = drawableHeight + 24f // Dịch xuống dưới trục ngang 24px
+                )
             )
         }
     }

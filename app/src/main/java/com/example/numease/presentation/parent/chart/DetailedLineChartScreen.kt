@@ -1,6 +1,8 @@
 package com.example.numease.presentation.parent.chart
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,14 +14,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.StudySession
+import com.example.numease.presentation.parent.chart.DetailedChartViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,7 +65,7 @@ fun DetailedLineChartScreen(
             }
         } else if (sessions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Bé chưa có dữ liệu cho kĩ năng này.", color = colorScheme.onSurfaceVariant)
+                Text("Bé chưa có dữ liệu cho kỹ năng này.", color = colorScheme.onSurfaceVariant)
             }
         } else {
             Column(
@@ -71,7 +81,7 @@ fun DetailedLineChartScreen(
                     color = colorScheme.onBackground
                 )
                 Text(
-                    text = "Trục dọc: Số câu trả lời đúng",
+                    text = "Trục dọc: Số câu trả lời đúng | Trục ngang: Lần chơi",
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 24.dp)
@@ -87,6 +97,7 @@ fun DetailedLineChartScreen(
                         .weight(1f)
                         .padding(bottom = 24.dp)
                 ) {
+                    // Gọi hàm vẽ biểu đồ mới
                     CustomLineChart20Sessions(sessions = sessions)
                 }
             }
@@ -98,10 +109,14 @@ fun DetailedLineChartScreen(
 fun CustomLineChart20Sessions(sessions: List<StudySession>) {
     val colorScheme = MaterialTheme.colorScheme
 
-    // Màu sắc động theo Theme
     val lineColor = colorScheme.primary
     val gridColor = colorScheme.outlineVariant
-    val labelTextColor = colorScheme.onSurfaceVariant.toArgb()
+
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = MaterialTheme.typography.labelMedium.copy(
+        color = colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Bold
+    )
 
     val correctAnswersData = sessions.map { it.correctAnswers.toFloat() }
     val maxQuestions = sessions.maxOfOrNull { it.totalQuestions.toFloat() }?.coerceAtLeast(5f) ?: 5f
@@ -123,49 +138,74 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 32.dp, bottom = 24.dp)
                 .clipToBounds()
         ) {
-            val width = size.width
-            val height = size.height
+            // 1. TẠO PADDING CHO CẢ 4 PHÍA (BẢO VỆ CHỮ KHÔNG BỊ CẮT)
+            val topPadding = 32.dp.toPx()   // Chừa lề trên để ghi số lớn nhất
+            val rightPadding = 32.dp.toPx() // Chừa lề phải để ghi lần chơi cuối cùng
+            val yAxisPadding = 80.dp.toPx() // Chừa lề trái
+            val xAxisPadding = 60.dp.toPx() // Chừa lề dưới
+
+            // Không gian thực tế để vẽ đường cong đồ thị
+            val drawableWidth = size.width - yAxisPadding - rightPadding
+            val drawableHeight = size.height - xAxisPadding - topPadding
 
             // A. VẼ TRỤC Y VÀ LƯỚI NGANG
             val horizontalLines = 5
             for (i in 0..horizontalLines) {
-                val y = height - (i.toFloat() / horizontalLines) * height
+                // Tọa độ Y bây giờ phải cộng thêm topPadding
+                val y = topPadding + drawableHeight - (i.toFloat() / horizontalLines) * drawableHeight
                 val labelValue = ((i.toFloat() / horizontalLines) * maxQuestions).toInt()
 
-                drawContext.canvas.nativeCanvas.apply {
-                    drawText(
-                        labelValue.toString(),
-                        -35f,
-                        y + 10f,
-                        android.graphics.Paint().apply {
-                            color = labelTextColor
-                            textSize = 32f
-                            textAlign = android.graphics.Paint.Align.RIGHT
-                            typeface = android.graphics.Typeface.DEFAULT_BOLD
-                        }
+                val textLayoutResult = textMeasurer.measure(text = labelValue.toString(), style = textStyle)
+                drawText(
+                    textLayoutResult = textLayoutResult,
+                    topLeft = Offset(
+                        x = yAxisPadding - textLayoutResult.size.width - 24f,
+                        y = y - textLayoutResult.size.height / 2f
+                    )
+                )
+
+                if (i > 0) {
+                    drawLine(
+                        color = gridColor,
+                        start = Offset(yAxisPadding, y),
+                        end = Offset(size.width - rightPadding + 16f, y), // Dài ra thêm một chút cho đẹp
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                     )
                 }
-
-                drawLine(
-                    color = gridColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 2f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-                )
             }
 
-            // B. TÍNH TỌA ĐỘ CÁC ĐIỂM
-            val spacing = if (correctAnswersData.size > 1) width / (correctAnswersData.size - 1) else width
+            // Vẽ đường trục X đậm (Mốc 0)
+            val xAxisY = topPadding + drawableHeight
+            drawLine(
+                color = gridColor,
+                start = Offset(yAxisPadding, xAxisY),
+                end = Offset(size.width - rightPadding + 16f, xAxisY),
+                strokeWidth = 4f
+            )
+
+            // B. TÍNH TỌA ĐỘ CÁC ĐIỂM TRÊN ĐỒ THỊ
+            val spacing = if (correctAnswersData.size > 1) drawableWidth / (correctAnswersData.size - 1) else drawableWidth
             val points = correctAnswersData.mapIndexed { index, correctNum ->
-                val x = index * spacing
-                val y = height - (correctNum / maxQuestions) * height
+                val x = yAxisPadding + (index * spacing)
+                val y = topPadding + drawableHeight - (correctNum / maxQuestions) * drawableHeight
+
+                val xLabel = "${index + 1}"
+                val xTextLayout = textMeasurer.measure(text = xLabel, style = textStyle)
+                drawText(
+                    textLayoutResult = xTextLayout,
+                    topLeft = Offset(
+                        x = x - xTextLayout.size.width / 2f,
+                        y = xAxisY + 24f
+                    )
+                )
+
                 Offset(x, y)
             }
 
+            // C. VẼ ĐƯỜNG CONG, HIỆU ỨNG VÀ ĐIỂM NHẤN
             if (points.size > 1) {
                 val smoothCurve = Path().apply {
                     moveTo(points.first().x, points.first().y)
@@ -177,29 +217,31 @@ fun CustomLineChart20Sessions(sessions: List<StudySession>) {
                     }
                 }
 
-                clipRect(right = width * animationProgress) {
-                    // Vẽ Gradient đổ bóng bên dưới
+                // Chạy hiệu ứng clip, cộng thêm rightPadding để không cắt hiệu ứng ở điểm cuối
+                clipRect(right = yAxisPadding + drawableWidth * animationProgress + rightPadding) {
+
                     val fillPath = Path().apply {
                         addPath(smoothCurve)
-                        lineTo(points.last().x, height)
-                        lineTo(points.first().x, height)
+                        lineTo(points.last().x, xAxisY)
+                        lineTo(points.first().x, xAxisY)
                         close()
                     }
+
                     drawPath(
                         path = fillPath,
                         brush = Brush.verticalGradient(
-                            colors = listOf(lineColor.copy(alpha = 0.3f), Color.Transparent)
+                            colors = listOf(lineColor.copy(alpha = 0.3f), Color.Transparent),
+                            startY = topPadding,
+                            endY = xAxisY // Đổ bóng kết thúc chính xác tại trục X
                         )
                     )
 
-                    // Vẽ đường kẻ biểu đồ
                     drawPath(
                         path = smoothCurve,
                         color = lineColor,
                         style = Stroke(width = 4.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
                     )
 
-                    // Vẽ các điểm nút
                     points.forEach { point ->
                         drawCircle(color = colorScheme.surface, radius = 6.dp.toPx(), center = point)
                         drawCircle(color = lineColor, radius = 4.dp.toPx(), center = point)

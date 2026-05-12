@@ -18,13 +18,23 @@ object MapRoute
 object TrophyRoute
 
 // 4. Màn hình chuẩn bị vào màn
-@Serializable
-data class SessionIntroRoute(val categoryId: Int, val level: Int)
 
-// 5. Màn hình làm bài tập chính
 @Serializable
-data class ExerciseRoute(val categoryId: Int, val level: Int)
+data class SessionIntroRoute(
+    val categoryId: Int,
+    val level: Int,
+    val levelId: Int // MỚI: Thêm ID cửa
+)
 
-// 6. Màn hình nhận thưởng sau khi làm xong
 @Serializable
-data class RewardRoute(val earnedStars: Int)
+data class ExerciseRoute(
+    val categoryId: Int,
+    val level: Int,
+    val levelId: Int // MỚI: Thêm ID cửa
+)
+
+@Serializable
+data class RewardRoute(
+    val earnedStars: Int,
+    val levelId: Int // MỚI: Thêm ID cửa để tính bài tiếp theo
+)

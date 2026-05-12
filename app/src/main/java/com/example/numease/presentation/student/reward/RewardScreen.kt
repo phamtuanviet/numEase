@@ -29,7 +29,8 @@ import java.util.Locale
 @Composable
 fun RewardScreen(
     earnedStars: Int,
-    onBackToMap: () -> Unit
+    onBackToMap: () -> Unit,
+    onNextLevel: () -> Unit
 ) {
     val context = LocalContext.current
     val isSoundEnabled = LocalSoundEnabled.current
@@ -198,7 +199,7 @@ fun RewardScreen(
 
                     // Nút Chơi tiếp (Dùng Button - Nút chính nổi bật)
                     Button(
-                        onClick = onBackToMap,
+                        onClick = onNextLevel, // MỚI: Đổi thành onNextLevel
                         shape = RoundedCornerShape(24.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = colorScheme.primary,
@@ -217,13 +218,5 @@ fun RewardScreen(
                 }
             }
         }
-    }
-}
-@Preview(showBackground = true, device = "id:pixel_5")
-@Composable
-fun RewardScreenPreview() {
-    MaterialTheme {
-        // Bạn có thể đổi số 3 thành 1 hoặc 2 để xem UI thay đổi thế nào
-        RewardScreen(earnedStars = 3, onBackToMap = {})
     }
 }

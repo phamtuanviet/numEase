@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.numease.presentation.theme.NumEaseTheme
+import androidx.compose.foundation.lazy.rememberLazyListState // Nhớ import thư viện này
+import androidx.compose.runtime.LaunchedEffect // Nhớ import thư viện này
 
 // ==========================================
 // 1. DATA CLASSES
@@ -38,6 +40,11 @@ data class MapNodeUI(
 // ==========================================
 // 2. MÀN HÌNH CHÍNH
 // ==========================================
+
+
+// ==========================================
+// 2. MÀN HÌNH CHÍNH
+// ==========================================
 @Composable
 fun MapScreen(
     totalStars: Int,
@@ -45,6 +52,24 @@ fun MapScreen(
     onBack: () -> Unit,
     onLevelSelected: (levelId: Int) -> Unit
 ) {
+    // MỚI: Khởi tạo biến lưu trạng thái cuộn của danh sách
+    val listState = rememberLazyListState()
+
+    // MỚI: Chạy hiệu ứng cuộn ngay khi danh sách nodes vừa load xong
+    LaunchedEffect(nodes) {
+        // Tìm vị trí của cửa đang chơi (Con Cáo)
+        val currentIndex = nodes.indexOfFirst { it.state == NodeState.CURRENT }
+
+        if (currentIndex != -1) {
+            // Cuộn ngay lập tức đến cửa hiện tại
+            // scrollOffset = -400 giúp đẩy con cáo lên giữa màn hình thay vì dính sát ở đáy
+            listState.scrollToItem(
+                index = currentIndex,
+                scrollOffset = -400
+            )
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -70,6 +95,7 @@ fun MapScreen(
 
         // B. Bản đồ cuộn ngược
         LazyColumn(
+            state = listState, // MỚI: Gắn trạng thái cuộn vào LazyColumn
             modifier = Modifier.fillMaxSize(),
             reverseLayout = true,
             contentPadding = PaddingValues(top = 120.dp, bottom = 40.dp)
@@ -109,14 +135,14 @@ fun MapScreen(
                     if (node.zoneName != null) {
                         Spacer(modifier = Modifier.height(24.dp))
                         Surface(
-                            color = MaterialTheme.colorScheme.surface, // Thẻ tên sẽ đổi màu chuẩn
+                            color = MaterialTheme.colorScheme.surface,
                             shape = RoundedCornerShape(24.dp),
                             shadowElevation = 4.dp,
                             modifier = Modifier.padding(bottom = 16.dp)
                         ) {
                             Text(
                                 text = node.zoneName,
-                                color = MaterialTheme.colorScheme.secondary, // Chữ Xanh dương để phân biệt các khu vực
+                                color = MaterialTheme.colorScheme.secondary,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)

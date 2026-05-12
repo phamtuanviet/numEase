@@ -2,6 +2,7 @@ package com.example.numease.navigation.graphs
 
 
 
+import EditCountingQuestionScreen
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
@@ -14,6 +15,10 @@ import com.example.numease.navigation.routes.AddDragDropQuestionRoute
 import com.example.numease.navigation.routes.AdminGraph
 import com.example.numease.navigation.routes.AdminHomeRoute
 import com.example.numease.navigation.routes.ChildDetailAdminRoute
+import com.example.numease.navigation.routes.EditCalculationQuestionRoute
+import com.example.numease.navigation.routes.EditComparingQuestionRoute
+import com.example.numease.navigation.routes.EditCountingQuestionRoute
+import com.example.numease.navigation.routes.EditDragDropQuestionRoute
 import com.example.numease.navigation.routes.ManageChildrenAdminRoute
 import com.example.numease.navigation.routes.ManageContentRoute
 import com.example.numease.navigation.routes.ManageLevelsRoute
@@ -21,12 +26,15 @@ import com.example.numease.navigation.routes.ManageParentsRoute
 import com.example.numease.navigation.routes.ManageQuestionsRoute
 import com.example.numease.navigation.routes.ManageUsersRoute
 import com.example.numease.presentation.admin.caculation.AddCalculationQuestionScreen
+import com.example.numease.presentation.admin.calculation.EditCalculationQuestionScreen
 import com.example.numease.presentation.admin.children.ManageChildrenAdminScreen
 import com.example.numease.presentation.admin.children_detail.ChildDetailAdminScreen
 import com.example.numease.presentation.admin.comparing.AddComparingQuestionScreen
+import com.example.numease.presentation.admin.comparing.EditComparingQuestionScreen
 import com.example.numease.presentation.admin.content.ManageContentScreen
 import com.example.numease.presentation.admin.counting.AddCountingQuestionScreen
 import com.example.numease.presentation.admin.drag_drop.AddDragDropQuestionScreen
+import com.example.numease.presentation.admin.dragdrop.EditDragDropQuestionScreen
 import com.example.numease.presentation.admin.home.AdminHomeScreen
 import com.example.numease.presentation.admin.manage_category.ManageLevelsScreen
 import com.example.numease.presentation.admin.parent.ManageParentsScreen
@@ -169,6 +177,28 @@ fun NavGraphBuilder.adminGraph(navController: NavController,authViewModel: AuthV
                             )
                         )
                     }
+                },
+                onEditQuestion = { exerciseId, type ->
+                    when (type) {
+                        "COUNTING" -> navController.navigate(
+                            EditCountingQuestionRoute(exerciseId, args.categoryId, args.level)
+                        )
+                        "COMPARING" -> navController.navigate(
+                            EditComparingQuestionRoute(exerciseId, args.categoryId, args.level)
+                        )
+                        "DRAG_DROP" -> navController.navigate(
+                            EditDragDropQuestionRoute(exerciseId, args.categoryId, args.level)
+                        )
+                        "CALCULATION" -> navController.navigate(
+                            // Truyền thêm categoryCode để màn Edit biết là Phép Cộng hay Phép Trừ
+                            EditCalculationQuestionRoute(
+                                exerciseId,
+                                args.categoryId,
+                                args.categoryCode,
+                                args.level
+                            )
+                        )
+                    }
                 }
             )
         }
@@ -263,6 +293,49 @@ fun NavGraphBuilder.adminGraph(navController: NavController,authViewModel: AuthV
             )
         }
 
+        composable<EditCountingQuestionRoute> { backStackEntry ->
+            val args = backStackEntry.toRoute<EditCountingQuestionRoute>()
+            EditCountingQuestionScreen(
+                exerciseId = args.exerciseId,
+                categoryId = args.categoryId,
+                level = args.level,
+                onBack = { navController.popBackStack() },
+                onSavedSuccess = { navController.popBackStack() } // Lưu hoặc xoá xong thì thoát ra
+            )
+        }
 
+        composable<EditComparingQuestionRoute> { backStackEntry ->
+            val args = backStackEntry.toRoute<EditComparingQuestionRoute>()
+            EditComparingQuestionScreen(
+                exerciseId = args.exerciseId,
+                categoryId = args.categoryId,
+                level = args.level,
+                onBack = { navController.popBackStack() },
+                onSavedSuccess = { navController.popBackStack() }
+            )
+        }
+
+        composable<EditCalculationQuestionRoute> { backStackEntry ->
+            val args = backStackEntry.toRoute<EditCalculationQuestionRoute>()
+            EditCalculationQuestionScreen(
+                exerciseId = args.exerciseId,
+                categoryId = args.categoryId,
+                categoryCode = args.categoryCode,
+                level = args.level,
+                onBack = { navController.popBackStack() },
+                onSavedSuccess = { navController.popBackStack() }
+            )
+        }
+
+        composable<EditDragDropQuestionRoute> { backStackEntry ->
+            val args = backStackEntry.toRoute<EditDragDropQuestionRoute>()
+            EditDragDropQuestionScreen(
+                exerciseId = args.exerciseId,
+                categoryId = args.categoryId,
+                level = args.level,
+                onBack = { navController.popBackStack() },
+                onSavedSuccess = { navController.popBackStack() }
+            )
+        }
     }
 }

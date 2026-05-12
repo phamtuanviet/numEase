@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChildCare
 import androidx.compose.material.icons.rounded.EditCalendar
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,8 +35,11 @@ fun ParentSetupScreen(
     var childName by remember { mutableStateOf("") }
     var childGender by remember { mutableStateOf("") } // Thêm biến lưu giới tính
     var childAgeInput by remember { mutableStateOf("") }
+    var parentPin by remember { mutableStateOf("") }
+
 
     // Logic Validate (Bắt lỗi) form trực tiếp
+    val isPinValid = parentPin.length == 4 && parentPin.all { it.isDigit() }
     val isAgeValid = childAgeInput.toIntOrNull()?.let { it in 1..18 } ?: false
     // Form chỉ hợp lệ khi điền đủ Tên, Giới tính và Tuổi hợp lệ
     val isFormValid = childName.isNotBlank() && childGender.isNotBlank() && isAgeValid
@@ -165,6 +170,30 @@ fun ParentSetupScreen(
                             }
                         }
                     )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // --- Ô NHẬP MÃ PIN ---
+                    OutlinedTextField(
+                        value = parentPin,
+                        onValueChange = { input ->
+                            // Chỉ cho nhập số và tối đa 4 ký tự
+                            if (input.length <= 4 && input.all { it.isDigit() }) {
+                                parentPin = input
+                            }
+                        },
+                        label = { Text("Mã PIN bảo vệ (4 số)") },
+                        leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null) },
+                        visualTransformation = PasswordVisualTransformation(), // Ẩn dưới dạng dấu *
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        isError = parentPin.isNotEmpty() && !isPinValid,
+                        supportingText = {
+                            Text("Mã PIN này dùng để khóa khu vực của Phụ huynh, tránh bé bấm nhầm.")
+                        }
+                    )
                 }
             }
 
@@ -175,10 +204,11 @@ fun ParentSetupScreen(
                 onClick = {
                     val age = childAgeInput.toIntOrNull() ?: 0
                     // Cập nhật ViewModel: truyền thêm childGender
-                    viewModel.createChildProfile(
+                    viewModel.createChildProfileAndPin(
                         name = childName.trim(),
                         gender = childGender,
-                        age = age
+                        age = age,
+                        pin = parentPin
                     )
                 },
                 enabled = isFormValid, // Nút chỉ sáng lên khi điền đúng định dạng và đã chọn giới tính

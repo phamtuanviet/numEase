@@ -19,6 +19,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.numease.data.model.CalculationContent
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+
+import kotlinx.coroutines.delay
+
 @Composable
 fun CalculationUI(
     content: CalculationContent,
@@ -28,6 +37,10 @@ fun CalculationUI(
     val colorScheme = MaterialTheme.colorScheme
     val isAddition = content.operator == "+"
 
+    // MỚI: State quản lý UX trực tiếp trên UI
+    var wrongAnswers by remember { mutableStateOf(setOf<Int>()) }
+    var isCorrectlyAnswered by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -35,7 +48,6 @@ fun CalculationUI(
         Spacer(modifier = Modifier.height(24.dp))
 
         // 1. Khung đề bài & Nút âm thanh (Phân biệt màu linh hoạt qua Theme)
-        // Dùng PrimaryContainer cho phép Cộng, TertiaryContainer cho phép Trừ
         val headerColor = if (isAddition) colorScheme.primaryContainer else colorScheme.tertiaryContainer
         val textColor = if (isAddition) colorScheme.onPrimaryContainer else colorScheme.onTertiaryContainer
 
@@ -75,7 +87,7 @@ fun CalculationUI(
             // Dấu (+ hoặc -)
             Text(
                 text = content.operator,
-                fontSize = 44.sp, // Tăng nhẹ size để cân bằng với thẻ số
+                fontSize = 44.sp,
                 fontWeight = FontWeight.Black,
                 color = colorScheme.onBackground,
                 modifier = Modifier.padding(horizontal = 8.dp)
@@ -93,19 +105,29 @@ fun CalculationUI(
                 modifier = Modifier.padding(horizontal = 8.dp)
             )
 
-            // Dấu Hỏi (Khung đáp án)
+            // Khung đáp án: Đổi màu và hiệu ứng khi bé trả lời ĐÚNG
+            val boxScale by animateFloatAsState(if (isCorrectlyAnswered) 1.15f else 1f, tween(400))
+            val boxBgColor by animateColorAsState(
+                targetValue = if (isCorrectlyAnswered) Color(0xFF4CAF50) else colorScheme.surfaceVariant,
+                animationSpec = tween(300)
+            )
+            val boxBorderColor = if (isCorrectlyAnswered) Color.Transparent else colorScheme.outline
+            val boxTextColor = if (isCorrectlyAnswered) Color.White else colorScheme.onSurfaceVariant
+
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(72.dp) // Kéo to ô trống ra một chút để chứa vừa số có 2 chữ số (vd: 15)
-                    .background(colorScheme.surfaceVariant, RoundedCornerShape(16.dp))
-                    .border(width = 2.dp, color = colorScheme.outline, shape = RoundedCornerShape(16.dp))
+                    .size(72.dp)
+                    .scale(boxScale) // Hiệu ứng nảy lên
+                    .background(boxBgColor, RoundedCornerShape(16.dp))
+                    .border(width = 2.dp, color = boxBorderColor, shape = RoundedCornerShape(16.dp))
             ) {
                 Text(
-                    text = "?",
+                    // Điền luôn đáp án vào nếu đúng
+                    text = if (isCorrectlyAnswered) content.correctAnswer.toString() else "?",
                     fontSize = 36.sp,
                     fontWeight = FontWeight.Black,
-                    color = colorScheme.onSurfaceVariant
+                    color = boxTextColor
                 )
             }
         }
@@ -118,21 +140,62 @@ fun CalculationUI(
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             content.options.forEach { option ->
-                val buttonContainerColor = if (isAddition) colorScheme.primary else colorScheme.tertiary
-                val buttonContentColor = if (isAddition) colorScheme.onPrimary else colorScheme.onTertiary
+
+                // Logic xác định trạng thái
+                val isCorrectAnswer = option == content.correctAnswer
+                val isWronglyPressed = wrongAnswers.contains(option)
+                val showSuccessEffect = isCorrectlyAnswered && isCorrectAnswer
+
+                // Màu sắc linh hoạt cho Phép Cộng / Phép Trừ
+                val defaultBgColor = if (isAddition) colorScheme.primary else colorScheme.tertiary
+                val defaultTextColor = if (isAddition) colorScheme.onPrimary else colorScheme.onTertiary
+
+                // Hiệu ứng màu nút
+                val buttonColor by animateColorAsState(
+                    targetValue = when {
+                        showSuccessEffect -> Color(0xFF4CAF50) // Xanh lá cây
+                        isWronglyPressed -> colorScheme.surfaceVariant // Xám mờ
+                        else -> defaultBgColor // Màu mặc định
+                    },
+                    animationSpec = tween(300)
+                )
+
+                val contentColor = if (showSuccessEffect) Color.White else if (isWronglyPressed) colorScheme.outline else defaultTextColor
+
+                // Hiệu ứng phóng to nút khi đúng
+                val buttonScale by animateFloatAsState(
+                    targetValue = if (showSuccessEffect) 1.15f else 1f,
+                    animationSpec = tween(500)
+                )
 
                 Button(
-                    onClick = { onAnswerSelected(option) },
+                    onClick = {
+                        if (isCorrectlyAnswered || isWronglyPressed) return@Button
+
+                        if (isCorrectAnswer) {
+                            // 1. TRƯỜNG HỢP ĐÚNG
+                            isCorrectlyAnswered = true
+                            onPlayAudio("Tuyệt vời, bé tính giỏi quá!")
+                        } else {
+                            // 2. TRƯỜNG HỢP SAI
+                            wrongAnswers = wrongAnswers + option
+                            onPlayAudio("Chưa chính xác, bé đếm lại các chấm tròn nhé.")
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = buttonContainerColor,
-                        contentColor = buttonContentColor
+                        containerColor = buttonColor,
+                        contentColor = contentColor,
+                        disabledContainerColor = buttonColor,
+                        disabledContentColor = contentColor
                     ),
                     shape = RoundedCornerShape(24.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    enabled = !isCorrectlyAnswered && !isWronglyPressed, // Khóa nút
                     modifier = Modifier
                         .height(90.dp)
-                        .widthIn(min = 90.dp) // Tự động giãn ngang nếu chữ số dài (như số 10)
-                        .shadow(6.dp, RoundedCornerShape(24.dp))
+                        .widthIn(min = 90.dp)
+                        .scale(buttonScale)
+                        .shadow(if (isWronglyPressed) 0.dp else 6.dp, RoundedCornerShape(24.dp))
                 ) {
                     Text(
                         text = option.toString(),
@@ -146,6 +209,16 @@ fun CalculationUI(
         }
 
         Spacer(modifier = Modifier.height(64.dp))
+    }
+
+    // --- XỬ LÝ CHUYỂN CÂU KHI BÉ LÀM ĐÚNG ---
+    LaunchedEffect(isCorrectlyAnswered) {
+        if (isCorrectlyAnswered) {
+            delay(1500) // Đợi 1.5s để bé nhìn phương trình hoàn chỉnh và nghe lời khen
+            onAnswerSelected(content.correctAnswer)
+            isCorrectlyAnswered = false
+            wrongAnswers = emptySet()
+        }
     }
 }
 

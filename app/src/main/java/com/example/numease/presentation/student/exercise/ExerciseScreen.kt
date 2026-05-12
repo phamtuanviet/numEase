@@ -3,6 +3,9 @@
 package com.example.numease.presentation.student.exercise
 
 import android.speech.tts.TextToSpeech
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +18,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,9 +42,10 @@ import java.util.Locale
 fun ExerciseScreen(
     categoryId: Int,
     level: Int,
+    levelId: Int,
     viewModel: ExerciseViewModel = hiltViewModel(),
     onPauseAndExit: () -> Unit,
-    onSessionComplete: (earnedStars: Int) -> Unit
+    onSessionComplete: (earnedStars: Int, currentLevelId: Int) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -71,7 +77,7 @@ fun ExerciseScreen(
         is ExerciseUiState.Loading -> Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator() }
         is ExerciseUiState.Error -> Box(Modifier.fillMaxSize(), Alignment.Center) { Text(state.message) }
         is ExerciseUiState.Finished -> {
-            LaunchedEffect(state.earnedStars) { onSessionComplete(state.earnedStars) }
+            LaunchedEffect(state.earnedStars) { onSessionComplete(state.earnedStars, levelId) }
         }
         is ExerciseUiState.Playing -> {
             val currentExercise = state.exercises[state.currentIndex]
@@ -107,14 +113,8 @@ fun ExerciseScreen(
                                             content = content,
                                             onPlayAudio = playAudio,
                                             onAnswerSelected = { answer ->
-                                                if (feedbackState == null) {
-                                                    pendingAnswer = answer
-                                                    val isCorrect = (answer == content.correctAnswer)
-                                                    feedbackState = isCorrect
-
-                                                    if (isCorrect) playAudio("Đúng rồi, giỏi quá!")
-                                                    else playAudio("Chưa chính xác.")
-                                                }
+                                                // UI con đã chạy xong hiệu ứng và báo về, chỉ việc nộp đáp án!
+                                                viewModel.submitAnswer(answer)
                                             }
                                         )
                                     }
@@ -122,12 +122,9 @@ fun ExerciseScreen(
                                         DragDropUI(
                                             content = content,
                                             onPlayAudio = playAudio,
-                                            onAnswerSelected = {
-                                                if (feedbackState == null) {
-                                                    pendingAnswer = 1
-                                                    feedbackState = true
-                                                    playAudio("Xuất sắc luôn, bé giỏi quá!")
-                                                }
+                                            onAnswerSelected = { answer ->
+                                                // DragDropUI trả về 1 khi bé ghép xong tất cả
+                                                viewModel.submitAnswer(answer)
                                             }
                                         )
                                     }
@@ -136,14 +133,7 @@ fun ExerciseScreen(
                                             content = content,
                                             onPlayAudio = playAudio,
                                             onAnswerSelected = { answer ->
-                                                if (feedbackState == null) {
-                                                    pendingAnswer = answer
-                                                    val isCorrect = (answer == content.correctAnswer)
-                                                    feedbackState = isCorrect
-
-                                                    if (isCorrect) playAudio("Đúng rồi, bé thật thông minh!")
-                                                    else playAudio("Chưa chính xác, thử lại nhé.")
-                                                }
+                                                viewModel.submitAnswer(answer)
                                             }
                                         )
                                     }
@@ -152,14 +142,7 @@ fun ExerciseScreen(
                                             content = content,
                                             onPlayAudio = playAudio,
                                             onAnswerSelected = { answer ->
-                                                if (feedbackState == null) {
-                                                    pendingAnswer = answer
-                                                    val isCorrect = (answer == content.correctAnswer)
-                                                    feedbackState = isCorrect
-
-                                                    if (isCorrect) playAudio("Tuyệt vời, bé tính giỏi quá!")
-                                                    else playAudio("Chưa chính xác, bé đếm lại các chấm tròn nhé.")
-                                                }
+                                                viewModel.submitAnswer(answer)
                                             }
                                         )
                                     }
@@ -167,22 +150,12 @@ fun ExerciseScreen(
                             }
                         }
                     }
-
-                    if (feedbackState != null) {
-                        FeedbackOverlay(
-                            isCorrect = feedbackState!!,
-                            onAnimationEnd = {
-                                viewModel.submitAnswer(pendingAnswer!!)
-                                feedbackState = null
-                                pendingAnswer = null
-                            }
-                        )
-                    }
                 }
             }
         }
     }
 }
+
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -193,13 +166,19 @@ fun CountingUI(
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
+    // MỚI: State lưu đáp án bé ĐÃ bấm sai để làm mờ nút đó đi
+    var wrongAnswers by remember { mutableStateOf(setOf<Int>()) }
+
+    // MỚI: State lưu trạng thái khi bé BẤM ĐÚNG (để chạy hiệu ứng chờ qua câu)
+    var isCorrectlyAnswered by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Khung đề bài + Âm thanh (Dùng SecondaryContainer)
+        // Khung đề bài + Âm thanh
         ElevatedCard(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.elevatedCardColors(
@@ -244,40 +223,103 @@ fun CountingUI(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Nút đáp án (Dùng Primary color)
+        // Nút đáp án
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             content.options.forEach { option ->
+
+                // Logic xác định trạng thái của nút
+                val isCorrectAnswer = option == content.correctAnswer
+                val isWronglyPressed = wrongAnswers.contains(option)
+                val showSuccessEffect = isCorrectlyAnswered && isCorrectAnswer
+
+                // Hiệu ứng màu sắc
+                val buttonColor by animateColorAsState(
+                    targetValue = when {
+                        showSuccessEffect -> Color(0xFF4CAF50) // Xanh lá cây (Đúng)
+                        isWronglyPressed -> colorScheme.surfaceVariant // Xám (Sai)
+                        else -> colorScheme.primary // Màu mặc định
+                    },
+                    animationSpec = tween(300)
+                )
+
+                val contentColor = if (showSuccessEffect) Color.White else if (isWronglyPressed) colorScheme.outline else colorScheme.onPrimary
+
+                // Hiệu ứng phóng to khi bấm đúng
+                val scale by animateFloatAsState(
+                    targetValue = if (showSuccessEffect) 1.15f else 1f,
+                    animationSpec = tween(500)
+                )
+
                 Button(
-                    onClick = { onAnswerSelected(option) },
+                    onClick = {
+                        if (isCorrectlyAnswered || isWronglyPressed) return@Button // Block spam click
+
+                        if (isCorrectAnswer) {
+                            // 1. TRƯỜNG HỢP ĐÚNG
+                            isCorrectlyAnswered = true
+                            onPlayAudio("Đúng rồi, giỏi quá!")
+                        } else {
+                            // 2. TRƯỜNG HỢP SAI
+                            wrongAnswers = wrongAnswers + option
+                            onPlayAudio("Chưa chính xác, thử lại nhé.")
+                        }
+                    },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.primary,
-                        contentColor = colorScheme.onPrimary
+                        containerColor = buttonColor,
+                        contentColor = contentColor,
+                        disabledContainerColor = buttonColor,
+                        disabledContentColor = contentColor
                     ),
                     shape = RoundedCornerShape(24.dp),
-                    // Giảm khoảng đệm mặc định để có nhiều không gian hiển thị chữ hơn
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    // Khóa nút nếu bé đã trả lời xong hoặc nút này đã bị bấm sai
+                    enabled = !isCorrectlyAnswered && !isWronglyPressed,
                     modifier = Modifier
-                        .height(90.dp) // Cố định chiều cao
-                        .widthIn(min = 90.dp) // Rộng tối thiểu 90dp, sẽ tự động giãn ngang nếu chữ dài
-                        .shadow(6.dp, RoundedCornerShape(24.dp))
+                        .height(90.dp)
+                        .widthIn(min = 90.dp)
+                        .scale(scale) // Áp dụng hiệu ứng phóng to
+                        .shadow(if (isWronglyPressed) 0.dp else 6.dp, RoundedCornerShape(24.dp))
                 ) {
-                    Text(
-                        text = option.toString(),
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 1, // Ép buộc chỉ hiển thị trên 1 dòng
-                        softWrap = false // Tắt tính năng tự động rớt dòng
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = option.toString(),
+                            fontSize = 36.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        // Hiện dấu tick nhỏ kế bên số nếu đúng
+                        if (showSuccessEffect) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("✅", fontSize = 24.sp)
+                        }
+                    }
                 }
             }
         }
         Spacer(modifier = Modifier.height(48.dp))
     }
-}
 
+    // --- XỬ LÝ CHUYỂN CÂU KHI BÉ LÀM ĐÚNG ---
+    LaunchedEffect(isCorrectlyAnswered) {
+        if (isCorrectlyAnswered) {
+            delay(1500) // Đợi 1.5s để bé nhìn thấy dấu Tick xanh và nghe Audio khen
+
+            // Báo lên cho ExerciseScreen biết là Đã Xong để chuyển qua câu mới
+            onAnswerSelected(content.correctAnswer)
+
+            // Reset trạng thái để chuẩn bị cho câu tiếp theo (nếu view được tái sử dụng)
+            isCorrectlyAnswered = false
+            wrongAnswers = emptySet()
+        }
+    }
+}
 @Composable
 fun ExerciseTopBar(currentIndex: Int, totalQuestions: Int, onClose: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
@@ -323,37 +365,3 @@ fun ExerciseTopBar(currentIndex: Int, totalQuestions: Int, onClose: () -> Unit) 
     }
 }
 
-@Composable
-fun FeedbackOverlay(
-    isCorrect: Boolean,
-    onAnimationEnd: () -> Unit
-) {
-    // Sử dụng màu chuẩn của MD3: primaryContainer cho Đúng, errorContainer cho Sai
-    // Giảm alpha xuống 0.9f để không bị gắt quá
-    val colorScheme = MaterialTheme.colorScheme
-    val bgColor = if (isCorrect) {
-        colorScheme.primaryContainer.copy(alpha = 0.9f)
-    } else {
-        colorScheme.errorContainer.copy(alpha = 0.9f)
-    }
-
-    val icon = if (isCorrect) "✅" else "❌"
-
-    LaunchedEffect(Unit) {
-        delay(1500)
-        onAnimationEnd()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(bgColor),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = icon,
-            fontSize = 150.sp,
-            modifier = Modifier.shadow(16.dp, CircleShape)
-        )
-    }
-}

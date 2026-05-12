@@ -1,6 +1,7 @@
 package com.example.numease.presentation.auth.login
 
 
+import android.widget.Toast
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +26,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.viewmodel.AuthState
 import com.example.numease.presentation.viewmodel.AuthViewModel
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.platform.LocalContext
+
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
@@ -35,6 +38,7 @@ fun LoginScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val authState by authViewModel.authState.collectAsState()
+    val context = LocalContext.current
 
     // 1. Quản lý Focus để ẩn bàn phím
     val focusManager = LocalFocusManager.current
@@ -42,9 +46,25 @@ fun LoginScreen(
 
     // Lắng nghe trạng thái Authenticated
     LaunchedEffect(authState) {
-        if (authState is AuthState.Authenticated) {
-            onNavigateToRouter()
-            viewModel.resetState()
+        when (authState) {
+            is AuthState.Authenticated -> {
+                // Đăng nhập hợp lệ -> Vào app
+                onNavigateToRouter()
+                viewModel.resetState()
+            }
+            is AuthState.Banned -> {
+                // TÀI KHOẢN BỊ KHÓA -> Báo lỗi chữ đỏ lên UI
+                viewModel.setError("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.")
+
+                // (Tùy chọn) Rung hoặc hiện thêm Toast cho mạnh mẽ
+                Toast.makeText(context, "Tài khoản bị khóa!", Toast.LENGTH_SHORT).show()
+            }
+            is AuthState.Unauthenticated -> {
+                // Nếu logout bình thường thì không làm gì (ở lại màn Login)
+            }
+            is AuthState.Loading -> {
+                // Đang check dữ liệu
+            }
         }
     }
 

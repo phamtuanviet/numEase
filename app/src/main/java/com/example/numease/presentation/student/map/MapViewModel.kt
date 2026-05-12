@@ -2,8 +2,10 @@ package com.example.numease.presentation.student.map
 
 
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.numease.data.model.ChildProfile
 import com.example.numease.data.repository.MapRepository
 import com.example.numease.manager.ChildSessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,10 +21,9 @@ import javax.inject.Inject
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val repository: MapRepository,
-    val childSessionManager: ChildSessionManager // Quản lý phiên của bé
+    val childSessionManager: ChildSessionManager
 ) : ViewModel() {
 
-    // State gửi sang UI
     private val _mapNodes = MutableStateFlow<List<MapNodeUI>>(emptyList())
     val mapNodes: StateFlow<List<MapNodeUI>> = _mapNodes.asStateFlow()
 
@@ -30,57 +31,65 @@ class MapViewModel @Inject constructor(
     val totalStars: StateFlow<Int> = _totalStars.asStateFlow()
 
     init {
-        loadMapData()
+        // LẮNG NGHE SỰ THAY ĐỔI CỦA ACTIVE CHILD
+        viewModelScope.launch {
+            childSessionManager.activeChild.collect { child ->
+                if (child != null) {
+                    loadMapData(child) // Khi có child thì mới truyền vào để load
+                } else {
+                    Log.d("MapViewModel", "Chưa nhận được activeChild")
+                }
+            }
+        }
     }
 
-    fun loadMapData() {
-        val child = childSessionManager.activeChild.value ?: return
-
+    // Truyền trực tiếp child vào hàm, không dùng .value nữa
+    private fun loadMapData(child: ChildProfile) {
         viewModelScope.launch {
-            // 1. Lấy dữ liệu từ DB
-            val records = repository.getLevelRecords(child.id!!)
+            try {
+                // 1. Lấy dữ liệu từ DB
+                val records = repository.getLevelRecords(child.id!!)
 
-            // Tính tổng sao hiển thị ở góc trên cùng
-            _totalStars.value = records.sumOf { it.stars }
+                // Tính tổng sao hiển thị ở góc trên cùng
+                _totalStars.value = records.sumOf { it.stars }
 
-            // 2. Xác định Cửa tiếp theo bé phải chơi
-            // (Ví dụ: Qua 5 cửa thì cửa tiếp theo là 6)
-            val currentUnlockedLevel = records.size + 1
+                // 2. Xác định Cửa tiếp theo bé phải chơi
+                val currentUnlockedLevel = records.size + 1
 
-            // 3. Render các cửa đã qua + 15 Cửa tương lai (Tạo cảm giác vô tận)
-            val totalNodesToRender = currentUnlockedLevel + 14
+                // 3. Render các cửa đã qua + 15 Cửa tương lai
+                val totalNodesToRender = currentUnlockedLevel + 14
+                val uiNodes = mutableListOf<MapNodeUI>()
 
-            val uiNodes = mutableListOf<MapNodeUI>()
+                for (levelId in 1..totalNodesToRender) {
+                    val def = generateNodeDefinition(levelId)
 
-            for (levelId in 1..totalNodesToRender) {
-                // Sinh thông số cấu hình cửa này
-                val def = generateNodeDefinition(levelId)
+                    val record = records.find {
+                        it.categoryId == def.categoryId && it.level == def.levelInDb
+                    }
 
-                // Kiểm tra xem bé đã có điểm ở cửa này chưa
-                val record = records.find {
-                    it.categoryId == def.categoryId && it.level == def.levelInDb
-                }
+                    val state = when {
+                        record != null -> NodeState.COMPLETED
+                        levelId == currentUnlockedLevel -> NodeState.CURRENT
+                        else -> NodeState.LOCKED
+                    }
 
-                // Gán trạng thái
-                val state = when {
-                    record != null -> NodeState.COMPLETED
-                    levelId == currentUnlockedLevel -> NodeState.CURRENT
-                    else -> NodeState.LOCKED
-                }
-
-                // Tạo Object UI và thêm vào mảng
-                uiNodes.add(
-                    MapNodeUI(
-                        levelId = levelId,
-                        zoneName = def.zoneName,
-                        state = state,
-                        stars = record?.stars ?: 0
+                    uiNodes.add(
+                        MapNodeUI(
+                            levelId = levelId,
+                            zoneName = def.zoneName,
+                            state = state,
+                            stars = record?.stars ?: 0
+                        )
                     )
-                )
-            }
+                }
 
-            // Gửi dữ liệu đã xử lý xong sang UI
-            _mapNodes.value = uiNodes
+                // Gửi dữ liệu đã xử lý xong sang UI
+                _mapNodes.value = uiNodes
+
+            } catch (e: Exception) {
+                // Thêm try-catch đề phòng lỗi khi query tài khoản mới tinh
+                Log.e("MapViewModel", "Lỗi tải Map: ${e.message}")
+            }
         }
     }
 

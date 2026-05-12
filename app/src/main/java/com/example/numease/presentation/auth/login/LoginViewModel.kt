@@ -78,4 +78,15 @@ class LoginViewModel @Inject constructor(
     fun resetState() {
         _state.value = LoginState()
     }
+
+    fun setError(message: String) {
+        _state.update {
+            it.copy(
+                error = message,
+                isLoading = false, // Chắc chắn tắt loading
+                isSuccess = false
+            )
+        }
+    }
+
 }

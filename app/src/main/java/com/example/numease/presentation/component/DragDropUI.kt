@@ -1,5 +1,7 @@
 package com.example.numease.presentation.component
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -12,9 +14,11 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -26,8 +30,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.example.numease.data.model.DragDropContent
 import com.example.numease.data.model.DraggableItem
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DragDropUI(
     content: DragDropContent,
@@ -38,10 +44,13 @@ fun DragDropUI(
 
     var dropZoneBounds by remember { mutableStateOf(mapOf<String, Rect>()) }
     var placedItems by remember { mutableStateOf(mapOf<String, String>()) }
+    var isAllCompleted by remember { mutableStateOf(false) }
 
     LaunchedEffect(placedItems) {
-        if (placedItems.size == content.correctMapping.size) {
-            kotlinx.coroutines.delay(500)
+        if (placedItems.size == content.correctMapping.size && content.correctMapping.isNotEmpty()) {
+            isAllCompleted = true
+            onPlayAudio("Giỏi quá! Bé ghép đúng hết rồi.")
+            delay(1500)
             onAnswerSelected(1)
         }
     }
@@ -52,30 +61,34 @@ fun DragDropUI(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 1. Đề bài & Nút âm thanh (Dùng Secondary Theme cho Trại Kéo Thả)
+        // 1. Đề bài & Nút âm thanh
         ElevatedCard(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.elevatedCardColors(
                 containerColor = colorScheme.secondaryContainer
             ),
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.clickable { onPlayAudio(content.instruction.text) }
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onPlayAudio(content.instruction.text) }
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                modifier = Modifier.padding(16.dp)
             ) {
                 Icon(
                     Icons.Default.VolumeUp,
                     contentDescription = "Nghe lại",
-                    tint = colorScheme.onSecondaryContainer
+                    tint = colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(32.dp)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = content.instruction.text,
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSecondaryContainer
+                    color = colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -84,22 +97,31 @@ fun DragDropUI(
 
         // 2. KHU VỰC GIỎ CHỨA (Drop Zones)
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max), // FIX 1: Giúp tất cả các thẻ trong Row có cùng chiều cao với thẻ cao nhất
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             content.dropZones.forEach { zone ->
                 val placedDraggableId = placedItems.entries.find { it.value == zone.id }?.key
                 val placedDraggable = content.draggables.find { it.id == placedDraggableId }
+                val isFilled = placedDraggable != null
+
+                val cardElevation by animateFloatAsState(if (isFilled) 2f else 6f, label = "elevation")
+                val holeColor by animateColorAsState(
+                    targetValue = if (isFilled) Color(0xFF4CAF50) else colorScheme.surfaceVariant,
+                    label = "holeColor"
+                )
 
                 ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = colorScheme.surface
-                    ),
-                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation.dp),
                     modifier = Modifier
-                        .size(140.dp)
+                        .weight(1f)
+                        .fillMaxHeight() // FIX 2: Bắt buộc thẻ giãn hết cỡ theo chiều cao Max của Row
+                        .defaultMinSize(minHeight = 200.dp) // FIX 3: Thay height cứng thành chiều cao tối thiểu để tự động nở ra khi có > 10 xe
                         .onGloballyPositioned { coordinates ->
                             dropZoneBounds = dropZoneBounds.toMutableMap().apply {
                                 put(zone.id, coordinates.boundsInRoot())
@@ -107,34 +129,40 @@ fun DragDropUI(
                         }
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 16.dp, horizontal = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Hiển thị đồ vật trong giỏ (VD: 🥕🥕)
-                        Text(
-                            text = zone.label,
-                            fontSize = 40.sp,
-                            textAlign = TextAlign.Center
-                        )
+                        // Vật phẩm trong giỏ (Dùng Box để căn giữa ô tô)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(bottom = 12.dp), // Thêm chút khoảng trống để ô tô không sát vào ô thả số
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = zone.label,
+                                fontSize = 24.sp,
+                                lineHeight = 30.sp, // FIX 4: Ép lineHeight nhỏ lại một chút để 10 ô tô không làm thẻ dài quá khổ màn hình
+                                textAlign = TextAlign.Center
+                            )
+                        }
 
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Khung rỗng / Vị trí đặt số
-                        val holeColor = if (placedDraggable != null) colorScheme.primary else colorScheme.surfaceVariant
-
+                        // Khung hứng số
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(60.dp)
+                                .size(50.dp)
                                 .background(holeColor, CircleShape)
                         ) {
-                            if (placedDraggable != null) {
+                            if (isFilled) {
                                 Text(
-                                    text = placedDraggable.label,
-                                    fontSize = 28.sp,
+                                    text = placedDraggable!!.label,
+                                    fontSize = 26.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = colorScheme.onPrimary
+                                    color = Color.White
                                 )
                             }
                         }
@@ -146,15 +174,18 @@ fun DragDropUI(
         Spacer(modifier = Modifier.weight(1f))
 
         // 3. KHU VỰC CÁC CON SỐ ĐỂ KÉO (Draggables)
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             content.draggables.forEach { draggable ->
                 if (!placedItems.containsKey(draggable.id)) {
                     DraggableNumberItem(
                         item = draggable,
                         onDragEnd = { finalPosition ->
+                            if (isAllCompleted) return@DraggableNumberItem false
+
                             var matchedZoneId: String? = null
                             for ((zoneId, rect) in dropZoneBounds) {
                                 if (rect.contains(finalPosition)) {
@@ -166,28 +197,30 @@ fun DragDropUI(
                             if (matchedZoneId != null) {
                                 if (content.correctMapping[draggable.id] == matchedZoneId) {
                                     placedItems = placedItems.toMutableMap().apply { put(draggable.id, matchedZoneId) }
-                                    onPlayAudio("Giỏi quá!")
+                                    onPlayAudio("Đúng rồi!")
+                                    return@DraggableNumberItem true
                                 } else {
                                     onPlayAudio("Chưa đúng giỏ rồi bé ơi.")
                                 }
                             }
+                            return@DraggableNumberItem false
                         }
                     )
                 } else {
-                    Box(modifier = Modifier.size(80.dp))
+                    Box(modifier = Modifier.size(70.dp))
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(64.dp))
+        Spacer(modifier = Modifier.height(48.dp))
     }
 }
 
-// --- COMPONENT XỬ LÝ GESTURE KÉO THẢ ---
+// Component xử lý Kéo/Thả giữ nguyên
 @Composable
 fun DraggableNumberItem(
     item: DraggableItem,
-    onDragEnd: (Offset) -> Unit
+    onDragEnd: (Offset) -> Boolean
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -209,9 +242,11 @@ fun DraggableNumberItem(
                     onDragStart = { isDragging = true },
                     onDragEnd = {
                         isDragging = false
-                        onDragEnd(globalPosition)
-                        offsetX = 0f
-                        offsetY = 0f
+                        val isSuccess = onDragEnd(globalPosition)
+                        if (!isSuccess) {
+                            offsetX = 0f
+                            offsetY = 0f
+                        }
                     },
                     onDragCancel = {
                         isDragging = false
@@ -225,15 +260,15 @@ fun DraggableNumberItem(
                     }
                 )
             }
-            .size(80.dp)
-            // Hiệu ứng đổ bóng mạnh hơn khi bé chạm và kéo để tạo cảm giác "nhấc" vật thể lên
+            .size(70.dp)
+            .scale(if (isDragging) 1.15f else 1f)
             .shadow(if (isDragging) 16.dp else 4.dp, CircleShape)
             .background(colorScheme.primary, CircleShape)
 
     ) {
         Text(
             text = item.label,
-            fontSize = 40.sp,
+            fontSize = 36.sp,
             fontWeight = FontWeight.Black,
             color = colorScheme.onPrimary
         )

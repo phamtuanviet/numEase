@@ -1,6 +1,8 @@
 package com.example.numease.presentation.parent.chart
 
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,13 +18,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.StudySession
+import com.example.numease.presentation.parent.chart.DetailedChartViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -117,7 +121,13 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
     val barCorrectColor = colorScheme.primary
     val barTotalColor = colorScheme.surfaceVariant
     val gridLineColor = colorScheme.outlineVariant
-    val labelTextColor = colorScheme.onSurfaceVariant.toArgb()
+
+    // Cài đặt TextMeasurer chuẩn Compose
+    val textMeasurer = rememberTextMeasurer()
+    val textStyle = MaterialTheme.typography.labelMedium.copy(
+        color = colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Bold
+    )
 
     val maxQuestions = sessions.maxOfOrNull { it.totalQuestions.toFloat() }?.coerceAtLeast(5f) ?: 5f
 
@@ -138,54 +148,72 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 32.dp, bottom = 24.dp) // Tăng nhẹ padding cho nhãn trục Y
                 .clipToBounds()
         ) {
-            val width = size.width
-            val height = size.height
+            // 1. TẠO PADDING CHO CẢ 4 PHÍA (BẢO VỆ CHỮ VÀ CỘT)
+            val topPadding = 32.dp.toPx()   // Lề trên cho số to nhất
+            val rightPadding = 32.dp.toPx() // Lề phải cho cột cuối cùng
+            val yAxisPadding = 80.dp.toPx() // Lề trái cho chữ số trục Y
+            val xAxisPadding = 60.dp.toPx() // Lề dưới cho số lần chơi trục X
+
+            // Không gian thực tế để vẽ các cột
+            val drawableWidth = size.width - yAxisPadding - rightPadding
+            val drawableHeight = size.height - xAxisPadding - topPadding
 
             // A. VẼ TRỤC Y VÀ LƯỚI NGANG
             val horizontalLines = 5
             for (i in 0..horizontalLines) {
-                val y = height - (i.toFloat() / horizontalLines) * height
+                // Tọa độ Y dịch xuống một khoảng topPadding
+                val y = topPadding + drawableHeight - (i.toFloat() / horizontalLines) * drawableHeight
                 val labelValue = ((i.toFloat() / horizontalLines) * maxQuestions).toInt()
 
-                drawContext.canvas.nativeCanvas.apply {
-                    drawText(
-                        labelValue.toString(),
-                        -35f,
-                        y + 10f,
-                        android.graphics.Paint().apply {
-                            color = labelTextColor
-                            textSize = 32f
-                            textAlign = android.graphics.Paint.Align.RIGHT
-                            typeface = android.graphics.Typeface.DEFAULT_BOLD
-                        }
+                // Vẽ chữ trục Y
+                val textLayoutResult = textMeasurer.measure(text = labelValue.toString(), style = textStyle)
+                drawText(
+                    textLayoutResult = textLayoutResult,
+                    topLeft = Offset(
+                        x = yAxisPadding - textLayoutResult.size.width - 24f, // Dịch sang trái lưới 24px
+                        y = y - textLayoutResult.size.height / 2f
+                    )
+                )
+
+                // Vẽ lưới đứt nét ngang (trừ mốc tọa độ 0)
+                if (i > 0) {
+                    drawLine(
+                        color = gridLineColor,
+                        start = Offset(yAxisPadding, y),
+                        end = Offset(size.width - rightPadding + 16f, y),
+                        strokeWidth = 2f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                     )
                 }
-
-                drawLine(
-                    color = gridLineColor,
-                    start = Offset(0f, y),
-                    end = Offset(width, y),
-                    strokeWidth = 2f,
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-                )
             }
+
+            // Vẽ đường trục X đậm (Mốc 0)
+            val xAxisY = topPadding + drawableHeight
+            drawLine(
+                color = gridLineColor,
+                start = Offset(yAxisPadding, xAxisY),
+                end = Offset(size.width - rightPadding + 16f, xAxisY),
+                strokeWidth = 4f
+            )
 
             // B. TÍNH TOÁN VÀ VẼ CÁC CỘT
             val maxBars = sessions.size.coerceAtLeast(1)
-            val spacing = width / maxBars
-            val barWidth = spacing * 0.6f // Tăng độ rộng cột một chút để bé dễ nhìn
+            val spacing = drawableWidth / maxBars
+            val barWidth = spacing * 0.6f
             val cornerRadius = CornerRadius(12f, 12f)
 
             sessions.forEachIndexed { index, session ->
-                val totalHeight = (session.totalQuestions.toFloat() / maxQuestions) * height
-                val correctHeight = (session.correctAnswers.toFloat() / maxQuestions) * height * animationProgress
+                val totalHeight = (session.totalQuestions.toFloat() / maxQuestions) * drawableHeight
+                val correctHeight = (session.correctAnswers.toFloat() / maxQuestions) * drawableHeight * animationProgress
 
-                val x = (index * spacing) + (spacing - barWidth) / 2
-                val yTotal = height - totalHeight
-                val yCorrect = height - correctHeight
+                // Tọa độ X phải cộng thêm yAxisPadding
+                val x = yAxisPadding + (index * spacing) + (spacing - barWidth) / 2
+
+                // Tọa độ Y cũng phải cộng thêm topPadding
+                val yTotal = topPadding + drawableHeight - totalHeight
+                val yCorrect = topPadding + drawableHeight - correctHeight
 
                 // 1. Vẽ cột NỀN (Tổng số câu)
                 if (session.totalQuestions > 0) {
@@ -206,6 +234,17 @@ fun CustomBarChart20Sessions(sessions: List<StudySession>) {
                         cornerRadius = cornerRadius
                     )
                 }
+
+                // 3. Vẽ nhãn trục X (Lần chơi thứ 1, 2, 3...)
+                val xLabel = "${index + 1}"
+                val xTextLayout = textMeasurer.measure(text = xLabel, style = textStyle)
+                drawText(
+                    textLayoutResult = xTextLayout,
+                    topLeft = Offset(
+                        x = x + barWidth / 2f - xTextLayout.size.width / 2f, // Căn giữa ngay dưới cột
+                        y = xAxisY + 24f // Dịch xuống dưới trục ngang 24px
+                    )
+                )
             }
         }
     }

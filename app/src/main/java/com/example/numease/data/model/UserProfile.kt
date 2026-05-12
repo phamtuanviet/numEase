@@ -11,4 +11,6 @@ data class UserProfile(
     val createdAt: String? = null,
     val name : String ? = null,
     val email : String ? = null,
+    @SerialName("is_banned") val isBanned: Boolean = false,
+    @SerialName("parent_pin") val parentPin: String? = null
 )

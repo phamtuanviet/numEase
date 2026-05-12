@@ -48,25 +48,22 @@ class AuthViewModel @Inject constructor(
                 Log.d("AuthViewModel", "observeAuthStatus: $status")
                 when (status) {
                     is SessionStatus.Authenticated -> {
-
                         fetchUserProfile()
                     }
                     is SessionStatus.NotAuthenticated -> {
                         _userProfile.value = null
-                        _authState.value = AuthState.Unauthenticated
 
-                        // KIỂM TRA LỖI TRẢ VỀ TỪ URL (Deep Link) TẠI ĐÂY
-                        // Nếu status có chứa thông tin lỗi từ external auth
+                        // 🛑 SỬA Ở ĐÂY: Chỉ đưa về Unauthenticated nếu chưa bị khóa
+                        if (_authState.value !is AuthState.Banned) {
+                            _authState.value = AuthState.Unauthenticated
+                        }
                     }
                     is SessionStatus.LoadingFromStorage -> {
                         _authState.value = AuthState.Loading
                     }
-
                     is SessionStatus.NetworkError -> {
-                        // Giữ nguyên trạng thái Loading để UI không nhảy lung tung
                         _authState.value = AuthState.Loading
                     }
-                    // Trong một số phiên bản, lỗi sẽ được đẩy qua trạng thái riêng
                     else -> { /* Xử lý các trạng thái khác */ }
                 }
             }
@@ -81,6 +78,21 @@ class AuthViewModel @Inject constructor(
                 .select { filter { eq("id", user.id) } }
                 .decodeSingleOrNull<UserProfile>()
 
+            // --- LOGIC CHẶN TÀI KHOẢN BỊ KHÓA NẰM Ở ĐÂY ---
+            if (profile != null && profile.isBanned) {
+                Log.d("AuthViewModel", "🛑 PHÁT HIỆN TÀI KHOẢN BỊ KHÓA: ${user.email}")
+
+                auth.signOut()
+                childSessionManager.clearSession()
+                _userProfile.value = null
+
+                // Đặt dòng này cuối cùng để nó là State cuối cùng được phát ra
+                _authState.value = AuthState.Banned
+
+                return
+            }
+            // ---------------------------------------------
+
             var children: List<ChildProfile> = emptyList()
 
             if (profile != null && profile.role != "ADMIN") {
@@ -88,18 +100,15 @@ class AuthViewModel @Inject constructor(
                     .select { filter { eq("account_id", user.id) } }
                     .decodeList<ChildProfile>()
 
-                // 2. LOGIC LƯU KÉT SẮT
-                if (children.size == 1) {
-                    // Nếu chỉ có 1 bé, auto chọn luôn cho nhanh
+
+                if (children.size == 1 && childSessionManager.activeChild.value == null) {
                     childSessionManager.setActiveChild(children.first())
-                } else {
-                    // Nếu 0 bé hoặc > 1 bé, xóa két sắt để khởi tạo lại từ đầu
-                    childSessionManager.clearSession()
                 }
+                // ------------------------------------
             }
 
             _userProfile.value = profile
-            _authState.value = AuthState.Authenticated(profile, children) // Truyền list đi
+            _authState.value = AuthState.Authenticated(profile, children)
 
         } catch (e: Exception) {
             e.printStackTrace()
@@ -124,4 +133,5 @@ sealed class AuthState {
         // Thay vì Boolean, ta lưu luôn danh sách các bé (phòng sau này 1 tk có 2-3 bé)
         val childProfiles: List<ChildProfile> = emptyList()
     ) : AuthState()    object Unauthenticated : AuthState()
+    object Banned : AuthState()
 }

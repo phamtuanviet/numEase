@@ -1,5 +1,6 @@
 package com.example.numease.presentation
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,20 +14,31 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +56,12 @@ fun ProfileSelectionScreen(
 ) {
     val authState by authViewModel.authState.collectAsState()
     val children = (authState as? AuthState.Authenticated)?.childProfiles ?: emptyList()
+
+    val correctPin = (authState as? AuthState.Authenticated)?.profile?.parentPin
+
+    var showPinDialog by remember { mutableStateOf(false) }
+    var inputPin by remember { mutableStateOf("") }
+    var isPinError by remember { mutableStateOf(false) }
 
     // Bọc toàn bộ màn hình trong Surface để nhận màu background chuẩn của MD3
     Surface(
@@ -76,11 +94,21 @@ fun ProfileSelectionScreen(
                 item {
                     ElevatedCard(
                         onClick = {
-                            authViewModel.childSessionManager.clearSession()
-                            onNavigateToParentMain()
+                            // --- THAY ĐỔI Ở ĐÂY ---
+                            if (!correctPin.isNullOrBlank()) {
+                                // Nếu có cài mã PIN -> Reset dữ liệu cũ và mở Popup lên
+                                inputPin = ""
+                                isPinError = false
+                                showPinDialog = true
+                            } else {
+                                // Nếu chưa cài mã PIN -> Cho qua thẳng
+                                authViewModel.childSessionManager.clearSession()
+                                onNavigateToParentMain()
+                            }
+                            // ----------------------
                         },
                         modifier = Modifier.aspectRatio(1f)
-                    ) {
+                    ){
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -125,6 +153,7 @@ fun ProfileSelectionScreen(
                 items(children) { child ->
                     ElevatedCard(
                         onClick = {
+                            Log.d("ProfileSelectionScreen", "Child selected: ${child.name}")
                             authViewModel.childSessionManager.setActiveChild(child)
                             onNavigateToStudentMain()
                         },
@@ -174,5 +203,54 @@ fun ProfileSelectionScreen(
                 }
             }
         }
+    }
+    if (showPinDialog) {
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = { Text("Nhập mã PIN", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Vui lòng nhập mã PIN 4 số của Phụ huynh để tiếp tục.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = inputPin,
+                        onValueChange = {
+                            if (it.length <= 4 && it.all { char -> char.isDigit() }) {
+                                inputPin = it
+                                isPinError = false
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        isError = isPinError,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    if (isPinError) {
+                        Text("Mã PIN không đúng!", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (inputPin == correctPin) {
+                            showPinDialog = false
+                            authViewModel.childSessionManager.clearSession()
+                            onNavigateToParentMain()
+                        } else {
+                            isPinError = true
+                        }
+                    }
+                ) {
+                    Text("Xác nhận")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinDialog = false }) {
+                    Text("Hủy")
+                }
+            }
+        )
     }
 }

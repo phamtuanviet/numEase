@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -13,17 +14,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.component.ParentGateDialog
 import com.example.numease.presentation.UserPreferencesViewModel
 import com.example.numease.presentation.component.RecentSessionsDialog
+import com.example.numease.presentation.viewmodel.AuthState
+import com.example.numease.presentation.viewmodel.AuthViewModel
 
 @Composable
 fun StudentHomeScreen(
     studentViewModel: StudentHomeViewModel = hiltViewModel(),
     userPrefsViewModel: UserPreferencesViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel(),
     onPlayClicked: () -> Unit,
     onParentGatePassed: () -> Unit,
     isParentAccount: Boolean,
@@ -39,11 +45,16 @@ fun StudentHomeScreen(
     val isDarkTheme = userPrefs.isDarkMode
     val isSoundEnabled = userPrefs.isSoundEnabled
 
+    val authState by authViewModel.authState.collectAsState()
+    val correctPin = (authState as? AuthState.Authenticated)?.profile?.parentPin
     // State quản lý Dialog
     var showRecentStats by remember { mutableStateOf(false) }
     var showChildInfo by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
-    var showParentGate by remember { mutableStateOf(false) }
+
+    var showPinDialog by remember { mutableStateOf(false) }
+    var inputPin by remember { mutableStateOf("") }
+    var isPinError by remember { mutableStateOf(false) }
 
     // --- CÁC DIALOGS ---
     if (showRecentStats) {
@@ -108,7 +119,13 @@ fun StudentHomeScreen(
                     Button(
                         onClick = {
                             showSettings = false
-                            showParentGate = true
+                            if (!correctPin.isNullOrBlank()) {
+                                inputPin = ""
+                                isPinError = false
+                                showPinDialog = true // Mở popup nhập số
+                            } else {
+                                onParentGatePassed() // Nếu chưa cài PIN thì cho qua luôn
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
@@ -169,13 +186,53 @@ fun StudentHomeScreen(
         )
     }
 
-    if (showParentGate) {
-        ParentGateDialog(
-            onDismiss = { showParentGate = false },
-            onSuccess = {
-                showParentGate = false
-                onParentGatePassed()
-            }
+    if (showPinDialog) {
+        AlertDialog(
+            onDismissRequest = { showPinDialog = false },
+            title = { Text("Nhập mã PIN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary) },
+            text = {
+                Column {
+                    Text("Khu vực này dành cho Phụ huynh. Vui lòng nhập mã PIN 4 số.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = inputPin,
+                        onValueChange = {
+                            if (it.length <= 4 && it.all { char -> char.isDigit() }) {
+                                inputPin = it
+                                isPinError = false
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        isError = isPinError,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (isPinError) {
+                        Text("Mã PIN không đúng!", color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (inputPin == correctPin) {
+                            showPinDialog = false
+                            onParentGatePassed() // PIN đúng -> Cho qua màn Admin/Parent
+                        } else {
+                            isPinError = true // Xử lý lỗi
+                        }
+                    }
+                ) {
+                    Text("Xác nhận")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPinDialog = false }) { Text("Hủy") }
+            },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 

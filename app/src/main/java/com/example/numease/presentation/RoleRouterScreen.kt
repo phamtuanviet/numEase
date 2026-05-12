@@ -76,6 +76,10 @@ fun RoleRouterScreen(
             is AuthState.Loading -> {
                 // UI hiện vòng xoay
             }
+
+            is AuthState.Banned -> {
+                // Splash/Login tự lo
+            }
         }
     }
 

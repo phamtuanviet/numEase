@@ -1,4 +1,5 @@
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -21,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,8 @@ fun SplashScreen(
     var startAnimation by remember { mutableStateOf(false) }
     var isMinDelayPassed by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+
     // Hiệu ứng mờ dần (Fade-in)
     val alphaAnim by animateFloatAsState(
         targetValue = if (startAnimation) 1f else 0f,
@@ -60,31 +64,28 @@ fun SplashScreen(
 
     // 4. Lắng nghe cả 2 điều kiện: Hết thời gian chờ VÀ AuthState đã load xong
     LaunchedEffect(authState, isMinDelayPassed) {
-        // 1. Log ngay khi LaunchedEffect bị gọi lại do 1 trong 2 biến thay đổi
-        Log.d(
-            "SplashScreen_Flow",
-            "🔄 Trạng thái hiện tại -> authState: ${authState::class.simpleName}, isMinDelayPassed: $isMinDelayPassed"
-        )
-
         if (isMinDelayPassed) {
-            Log.d("SplashScreen_Flow", "⏱️ Đã qua thời gian chờ tối thiểu. Bắt đầu xét hướng đi...")
-
             when (authState) {
                 is AuthState.Authenticated -> {
-                    Log.d("SplashScreen_Flow", "✅ KẾT QUẢ: Đã đăng nhập. Gọi onNavigateToRouter() để vào app.")
                     onNavigateToRouter()
                 }
                 is AuthState.Unauthenticated -> {
-                    Log.d("SplashScreen_Flow", "❌ KẾT QUẢ: Chưa đăng nhập. Gọi onNavigateToAuth() ra màn Login.")
+                    onNavigateToAuth()
+                }
+                is AuthState.Banned -> {
+                    // TÀI KHOẢN BỊ KHÓA SẼ RƠI VÀO ĐÂY
+                    Log.d("SplashScreen_Flow", "🚫 Tài khoản bị khóa. Đá ra màn Login.")
+
+                    // Hiện thông báo cho User
+                    Toast.makeText(context, "Tài khoản của bạn đã bị khóa bởi Quản trị viên!", Toast.LENGTH_LONG).show()
+
+                    // Điều hướng về Login
                     onNavigateToAuth()
                 }
                 is AuthState.Loading -> {
-                    Log.d("SplashScreen_Flow", "⏳ KẾT QUẢ: AuthState vẫn đang Loading. Tiếp tục treo màn hình Splash...")
+                    Log.d("SplashScreen_Flow", "⏳ AuthState vẫn đang Loading...")
                 }
             }
-        } else {
-            // 2. Log trường hợp mạng load quá nhanh nhưng chưa hết 1.5s delay
-            Log.d("SplashScreen_Flow", "🛑 CHẶN LẠI: Chưa qua thời gian delay. Dù AuthState là ${authState::class.simpleName} thì vẫn bắt đợi.")
         }
     }
 

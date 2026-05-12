@@ -56,14 +56,10 @@ fun NavGraphBuilder.studentGraph(
 
         // --- 2. MÀN HÌNH BẢN ĐỒ ---
         composable<MapRoute> {
-            // 1. Khởi tạo ViewModel bằng Hilt
             val mapViewModel: MapViewModel = hiltViewModel()
-
-            // 2. Lắng nghe State từ ViewModel
             val totalStars by mapViewModel.totalStars.collectAsState()
             val mapNodes by mapViewModel.mapNodes.collectAsState()
 
-            // 3. Gắn State vào UI (Tách biệt hoàn toàn logic và view)
             MapScreen(
                 totalStars = totalStars,
                 nodes = mapNodes,
@@ -71,15 +67,14 @@ fun NavGraphBuilder.studentGraph(
                     navController.navigateUp()
                 },
                 onLevelSelected = { clickedLevelId ->
-                    // Khi bấm vào 1 Cửa (VD Cửa số 12), hỏi ViewModel xem Cửa 12 đó
-                    // thuộc Category mấy, Level mấy trong DB để gửi đi
                     val nodeConfig = mapViewModel.getNodeDefinition(clickedLevelId)
 
-                    // Chuyển sang màn hình Intro trước khi vào bài tập
+                    // Chuyển sang màn hình Intro, truyền kèm levelId
                     navController.navigate(
                         SessionIntroRoute(
                             categoryId = nodeConfig.categoryId,
-                            level = nodeConfig.levelInDb
+                            level = nodeConfig.levelInDb,
+                            levelId = nodeConfig.levelId // TRUYỀN VÀO ĐÂY
                         )
                     )
                 }
@@ -88,13 +83,20 @@ fun NavGraphBuilder.studentGraph(
 
         composable<SessionIntroRoute> { backStackEntry ->
             val args = backStackEntry.toRoute<SessionIntroRoute>()
+
             SessionIntroScreen(
                 categoryId = args.categoryId,
                 level = args.level,
                 onBack = { navController.navigateUp() },
                 onStart = {
-                    // Vào làm bài và xóa màn Intro khỏi lịch sử để trẻ không Back lại được
-                    navController.navigate(ExerciseRoute(args.categoryId, args.level)) {
+                    // Vào làm bài, luồn levelId đi tiếp và xóa Intro khỏi lịch sử
+                    navController.navigate(
+                        ExerciseRoute(
+                            categoryId = args.categoryId,
+                            level = args.level,
+                            levelId = args.levelId // TRUYỀN TIẾP VÀO ĐÂY
+                        )
+                    ) {
                         popUpTo<SessionIntroRoute> { inclusive = true }
                     }
                 }
@@ -104,18 +106,19 @@ fun NavGraphBuilder.studentGraph(
 //        // --- 4. MÀN HÌNH LÀM BÀI ---
         composable<ExerciseRoute> { backStackEntry ->
             val args = backStackEntry.toRoute<ExerciseRoute>()
+
             ExerciseScreen(
                 categoryId = args.categoryId,
                 level = args.level,
+                levelId = args.levelId, // TRUYỀN XUỐNG UI CỦA EXERCISE
                 onPauseAndExit = {
-                    // Trẻ bấm nút Tạm dừng -> Thoát về Bản đồ
                     navController.navigate(MapRoute) {
                         popUpTo<MapRoute> { inclusive = true }
                     }
                 },
-                onSessionComplete = { stars ->
-                    // Xong bài -> Nhận thưởng
-                    navController.navigate(RewardRoute(stars)) {
+                onSessionComplete = { stars, currentLevelId ->
+                    // Xong bài -> Bắn sao và ID cửa hiện tại sang màn Nhận Thưởng
+                    navController.navigate(RewardRoute(stars, currentLevelId)) {
                         popUpTo<ExerciseRoute> { inclusive = true }
                     }
                 }
@@ -126,14 +129,32 @@ fun NavGraphBuilder.studentGraph(
         composable<RewardRoute> { backStackEntry ->
             val args = backStackEntry.toRoute<RewardRoute>()
 
+            // Khởi tạo MapViewModel để dùng thuật toán tính bài tiếp theo
+            val mapViewModel: MapViewModel = hiltViewModel()
+
             RewardScreen(
                 earnedStars = args.earnedStars,
                 onBackToMap = {
-                    // Khi bé bấm nút nào thì cũng điều hướng về Bản đồ.
-                    // MapScreen sẽ tự động lấy dữ liệu mới từ Database và hiệu ứng MỞ CỬA sẽ xảy ra!
                     navController.navigate(MapRoute) {
-                        // Xóa toàn bộ lịch sử từ MapRoute trở lên để không bị chồng chất màn hình
                         popUpTo<MapRoute> { inclusive = true }
+                    }
+                },
+                onNextLevel = {
+                    // 1. Tính toán ID cửa tiếp theo
+                    val nextLevelId = args.levelId + 1
+
+                    // 2. Dùng MapViewModel lấy cấu hình cửa mới
+                    val nextNodeDef = mapViewModel.getNodeDefinition(nextLevelId)
+
+                    // 3. Chuyển sang màn Intro của cửa mới, xóa RewardScreen cũ đi
+                    navController.navigate(
+                        SessionIntroRoute(
+                            categoryId = nextNodeDef.categoryId,
+                            level = nextNodeDef.levelInDb,
+                            levelId = nextNodeDef.levelId
+                        )
+                    ) {
+                        popUpTo<RewardRoute> { inclusive = true }
                     }
                 }
             )

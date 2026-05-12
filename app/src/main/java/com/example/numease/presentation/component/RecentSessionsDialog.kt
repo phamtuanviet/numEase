@@ -133,7 +133,7 @@ fun KidFriendlyLineChart(sessions: List<StudySession>) {
             Text("⭐⭐⭐", fontSize = 10.sp)
             Text("⭐⭐", fontSize = 10.sp)
             Text("⭐", fontSize = 10.sp)
-            Text("😢", fontSize = 10.sp)
+            Text("\uD83C\uDF31", fontSize = 10.sp)
         }
 
         Spacer(modifier = Modifier.width(8.dp))
