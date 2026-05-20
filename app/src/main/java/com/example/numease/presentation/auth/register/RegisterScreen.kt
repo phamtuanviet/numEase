@@ -1,7 +1,10 @@
 package com.example.numease.presentation.auth.register
 
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
@@ -10,12 +13,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,15 +32,36 @@ fun RegisterScreen(
 ) {
     val state by viewModel.state.collectAsState()
 
-    // Chuyển hướng khi đăng ký thành công
+    // Quản lý Focus để ẩn bàn phím
+    val focusManager = LocalFocusManager.current
+    val scrollState = rememberScrollState()
+
+    // MỚI: Khởi tạo Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Xử lý hiển thị thông báo lỗi
+    LaunchedEffect(state.error) {
+        state.error?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.resetState()
+        }
+    }
+
+    // Xử lý chuyển hướng khi đăng ký thành công
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
+            // Hiển thị thông báo thành công
+            snackbarHostState.showSnackbar("Đăng ký thành công! Đang chuyển hướng...")
+            // Đợi 1 giây để người dùng kịp đọc thông báo rồi mới chuyển màn hình
+            delay(500)
+
             onRegisterSuccess(state.email)
             viewModel.resetState()
         }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn Snackbar
         topBar = {
             TopAppBar(
                 title = { Text("") },
@@ -47,13 +74,18 @@ fun RegisterScreen(
                     containerColor = MaterialTheme.colorScheme.background
                 )
             )
+        },
+        // Chạm ra ngoài vùng trống sẽ ẩn bàn phím
+        modifier = Modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { focusManager.clearFocus() })
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 24.dp)
+                .verticalScroll(scrollState), // Hỗ trợ cuộn khi bàn phím hiện lên
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -69,16 +101,8 @@ fun RegisterScreen(
                 text = "Đăng ký để đồng hành cùng trẻ",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(32.dp))
 
-            // --- BÁO LỖI (Nếu có) ---
-            if (state.error != null) {
-                Text(
-                    text = state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(40.dp))
 
             // --- Ô NHẬP EMAIL ---
             OutlinedTextField(
@@ -116,11 +140,14 @@ fun RegisterScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(40.dp))
 
             // --- NÚT ĐĂNG KÝ ---
             Button(
-                onClick = { viewModel.register() },
+                onClick = {
+                    focusManager.clearFocus() // Ẩn bàn phím khi bấm nút
+                    viewModel.register()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -133,21 +160,23 @@ fun RegisterScreen(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Đăng ký", fontSize = 16.sp)
+                    Text("Đăng ký", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(48.dp))
 
             // --- NÚT CHUYỂN VỀ ĐĂNG NHẬP ---
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Đã có tài khoản?")
+                Text("Đã có tài khoản?", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onNavigateBack) {
-                    Text("Đăng nhập")
+                    Text("Đăng nhập", fontWeight = FontWeight.Bold)
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.StateFlow
 
 @HiltViewModel
 class EditComparingViewModel @Inject constructor(
@@ -29,6 +30,22 @@ class EditComparingViewModel @Inject constructor(
     val isLoading = _isLoading.asStateFlow()
 
     var isSaving = mutableStateOf(false)
+
+    // MỚI: State xử lý lỗi
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // MỚI: Kiểm tra form có trống không
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                leftValue.value.isNotBlank() &&
+                rightValue.value.isNotBlank() &&
+                correctAnswer.value.isNotBlank()
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
 
     // 1. LOAD DỮ LIỆU CŨ TỪ SUPABASE
     fun loadQuestionData(exerciseId: String) {
@@ -49,6 +66,7 @@ class EditComparingViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("EditComparing", "Lỗi tải dữ liệu: ${e.message}")
+                _errorMessage.value = "Không thể tải câu hỏi."
             } finally {
                 _isLoading.value = false
             }
@@ -60,14 +78,40 @@ class EditComparingViewModel @Inject constructor(
         if (isSaving.value) return
 
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng điền đầy đủ các trường bắt buộc."
+                return@launch
+            }
+
+            val leftInt = leftValue.value.trim().toIntOrNull()
+            val rightInt = rightValue.value.trim().toIntOrNull()
+
+            if (leftInt == null || rightInt == null) {
+                _errorMessage.value = "Số bên trái và số bên phải phải là chữ số hợp lệ."
+                return@launch
+            }
+
+            // MỚI: Validation thông minh
+            val isMathCorrect = when (correctAnswer.value) {
+                ">" -> leftInt > rightInt
+                "<" -> leftInt < rightInt
+                "=" -> leftInt == rightInt
+                else -> false
+            }
+
+            if (!isMathCorrect) {
+                _errorMessage.value = "Đáp án bạn chọn (${correctAnswer.value}) không đúng với phép toán: $leftInt và $rightInt."
+                return@launch
+            }
+
             isSaving.value = true
             try {
                 val fixedOptions = listOf(">", "<", "=")
                 // Tạo JSON động mới
                 val updatedContent = ComparingContent(
-                    instruction = Instruction(text = instructionText.value),
-                    leftValue = leftValue.value.toIntOrNull() ?: 0,
-                    rightValue = rightValue.value.toIntOrNull() ?: 0,
+                    instruction = Instruction(text = instructionText.value.trim()),
+                    leftValue = leftInt,
+                    rightValue = rightInt,
                     correctAnswer = correctAnswer.value,
                     options = fixedOptions,
                 )
@@ -87,6 +131,7 @@ class EditComparingViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditComparing", "Lỗi cập nhật: ${e.message}")
+                _errorMessage.value = "Lỗi khi cập nhật: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }
@@ -104,6 +149,7 @@ class EditComparingViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditComparing", "Lỗi xoá: ${e.message}")
+                _errorMessage.value = "Không thể xóa câu hỏi."
             }
         }
     }

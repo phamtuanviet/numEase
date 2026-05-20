@@ -14,11 +14,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -99,7 +102,7 @@ fun DragDropUI(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Max), // FIX 1: Giúp tất cả các thẻ trong Row có cùng chiều cao với thẻ cao nhất
+                .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -110,7 +113,7 @@ fun DragDropUI(
 
                 val cardElevation by animateFloatAsState(if (isFilled) 2f else 6f, label = "elevation")
                 val holeColor by animateColorAsState(
-                    targetValue = if (isFilled) Color(0xFF4CAF50) else colorScheme.surfaceVariant,
+                    targetValue = if (isFilled) Color(0xFF4CAF50) else Color.Transparent,
                     label = "holeColor"
                 )
 
@@ -120,8 +123,8 @@ fun DragDropUI(
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = cardElevation.dp),
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight() // FIX 2: Bắt buộc thẻ giãn hết cỡ theo chiều cao Max của Row
-                        .defaultMinSize(minHeight = 200.dp) // FIX 3: Thay height cứng thành chiều cao tối thiểu để tự động nở ra khi có > 10 xe
+                        .fillMaxHeight()
+                        .defaultMinSize(minHeight = 200.dp)
                         .onGloballyPositioned { coordinates ->
                             dropZoneBounds = dropZoneBounds.toMutableMap().apply {
                                 put(zone.id, coordinates.boundsInRoot())
@@ -135,32 +138,50 @@ fun DragDropUI(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Vật phẩm trong giỏ (Dùng Box để căn giữa ô tô)
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .padding(bottom = 12.dp), // Thêm chút khoảng trống để ô tô không sát vào ô thả số
+                                .padding(bottom = 12.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = zone.label,
                                 fontSize = 24.sp,
-                                lineHeight = 30.sp, // FIX 4: Ép lineHeight nhỏ lại một chút để 10 ô tô không làm thẻ dài quá khổ màn hình
+                                lineHeight = 30.sp,
                                 textAlign = TextAlign.Center
                             )
                         }
 
-                        // Khung hứng số
+                        // CRITICAL FIX: Tạo ô trống có viền đứt nét nổi bật
+                        val borderColor = colorScheme.outline
+                        val dashEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 10f), 0f)
+
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .size(50.dp)
+                                .size(56.dp) // Tăng nhẹ size ô trống để vừa với viên bi to hơn
+                                .drawBehind {
+                                    // Vẽ viền đứt nét nếu chưa có đáp án
+                                    if (!isFilled) {
+                                        drawCircle(
+                                            color = borderColor,
+                                            style = Stroke(
+                                                width = 3.dp.toPx(),
+                                                pathEffect = dashEffect
+                                            )
+                                        )
+                                        // Đổ bóng mờ nhẹ bên trong để tạo cảm giác lõm
+                                        drawCircle(
+                                            color = borderColor.copy(alpha = 0.1f)
+                                        )
+                                    }
+                                }
                                 .background(holeColor, CircleShape)
                         ) {
                             if (isFilled) {
                                 Text(
                                     text = placedDraggable!!.label,
-                                    fontSize = 26.sp,
+                                    fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
                                     color = Color.White
                                 )
@@ -175,9 +196,11 @@ fun DragDropUI(
 
         // 3. KHU VỰC CÁC CON SỐ ĐỂ KÉO (Draggables)
         FlowRow(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp), // MAJOR FIX: Thêm margin 2 bên an toàn
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp) // MINOR FIX: Tăng khoảng cách các hàng
         ) {
             content.draggables.forEach { draggable ->
                 if (!placedItems.containsKey(draggable.id)) {
@@ -207,7 +230,7 @@ fun DragDropUI(
                         }
                     )
                 } else {
-                    Box(modifier = Modifier.size(70.dp))
+                    Box(modifier = Modifier.size(80.dp)) // Giữ khoảng trống khi kéo xong
                 }
             }
         }
@@ -216,7 +239,6 @@ fun DragDropUI(
     }
 }
 
-// Component xử lý Kéo/Thả giữ nguyên
 @Composable
 fun DraggableNumberItem(
     item: DraggableItem,
@@ -260,7 +282,7 @@ fun DraggableNumberItem(
                     }
                 )
             }
-            .size(70.dp)
+            .size(80.dp) // MINOR FIX: Tăng kích thước vùng chạm từ 70dp -> 80dp
             .scale(if (isDragging) 1.15f else 1f)
             .shadow(if (isDragging) 16.dp else 4.dp, CircleShape)
             .background(colorScheme.primary, CircleShape)
@@ -268,7 +290,7 @@ fun DraggableNumberItem(
     ) {
         Text(
             text = item.label,
-            fontSize = 36.sp,
+            fontSize = 40.sp, // Tăng size chữ cho phù hợp với nút bự hơn
             fontWeight = FontWeight.Black,
             color = colorScheme.onPrimary
         )

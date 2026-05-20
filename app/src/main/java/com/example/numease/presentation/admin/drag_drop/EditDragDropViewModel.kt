@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.StateFlow
 
 @HiltViewModel
 class EditDragDropViewModel @Inject constructor(
@@ -24,7 +25,7 @@ class EditDragDropViewModel @Inject constructor(
 
     // Trạng thái Form
     var instructionText = mutableStateOf("")
-    var objectType = mutableStateOf("apple") // Mặc định do DragDropContent không lưu trường này
+    var objectType = mutableStateOf("apple")
 
     // Thay numbersText (chuỗi có dấu phẩy) bằng 3 ô lựa chọn
     var option1 = mutableStateOf("")
@@ -35,6 +36,20 @@ class EditDragDropViewModel @Inject constructor(
     val isLoading = _isLoading.asStateFlow()
 
     var isSaving = mutableStateOf(false)
+
+    // MỚI: State xử lý lỗi
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // Kiểm tra form cơ bản
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                (option1.value.isNotBlank() || option2.value.isNotBlank() || option3.value.isNotBlank())
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
 
     // 1. TẢI DỮ LIỆU TỪ SUPABASE
     fun loadQuestionData(exerciseId: String) {
@@ -49,7 +64,6 @@ class EditDragDropViewModel @Inject constructor(
                 if (content != null) {
                     instructionText.value = content.instruction.text
 
-                    // Lấy lại danh sách số từ draggables (VD: "2", "3", "4") và gán vào 3 ô
                     val labels = content.draggables.map { it.label }
                     option1.value = labels.getOrNull(0) ?: ""
                     option2.value = labels.getOrNull(1) ?: ""
@@ -57,6 +71,7 @@ class EditDragDropViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("EditDragDrop", "Lỗi tải dữ liệu: ${e.message}")
+                _errorMessage.value = "Không thể tải dữ liệu câu hỏi."
             } finally {
                 _isLoading.value = false
             }
@@ -68,12 +83,29 @@ class EditDragDropViewModel @Inject constructor(
         if (isSaving.value) return
 
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng nhập Đề bài và ít nhất 2 Số lượng."
+                return@launch
+            }
+
+            // 1. Lấy danh sách số từ 3 ô (Tự động bỏ qua ô trống)
+            val numbers = listOf(option1.value, option2.value, option3.value)
+                .mapNotNull { it.trim().toIntOrNull() }
+
+            // Validation 1: Phải có ít nhất 2 số
+            if (numbers.size < 2) {
+                _errorMessage.value = "Vui lòng nhập ít nhất 2 số ở phần Cặp Số - Giỏ."
+                return@launch
+            }
+
+            // Validation 2: Các số không được trùng lặp
+            if (numbers.distinct().size != numbers.size) {
+                _errorMessage.value = "Các số không được trùng lặp. Vui lòng kiểm tra lại 3 ô lựa chọn."
+                return@launch
+            }
+
             isSaving.value = true
             try {
-                // 1. Lấy danh sách số từ 3 ô (Tự động bỏ qua ô trống)
-                val numbers = listOf(option1.value, option2.value, option3.value)
-                    .mapNotNull { it.trim().toIntOrNull() }
-
                 val emoji = getEmojiForObject(objectType.value)
 
                 // 2. Sinh lại danh sách Kéo (Draggables)
@@ -94,7 +126,7 @@ class EditDragDropViewModel @Inject constructor(
 
                 // 5. Đóng gói Content mới
                 val updatedContent = DragDropContent(
-                    instruction = Instruction(text = instructionText.value),
+                    instruction = Instruction(text = instructionText.value.trim()),
                     draggables = draggablesList,
                     dropZones = dropZonesList,
                     correctMapping = mapping
@@ -116,6 +148,7 @@ class EditDragDropViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditDragDrop", "Lỗi cập nhật: ${e.message}")
+                _errorMessage.value = "Lỗi khi cập nhật: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }
@@ -131,6 +164,7 @@ class EditDragDropViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditDragDrop", "Lỗi xoá: ${e.message}")
+                _errorMessage.value = "Không thể xóa câu hỏi."
             }
         }
     }

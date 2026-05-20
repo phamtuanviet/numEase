@@ -19,8 +19,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.utils.getEmojiForObject
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 
-// Danh sách các khóa vật thể
 val AVAILABLE_OBJECT_TYPES = listOf(
     "apple", "cat", "dog", "star", "candy", "flower", "ball",
     "car", "banana", "bird", "strawberry", "rabbit", "ice_cream",
@@ -41,8 +42,20 @@ fun AddCountingQuestionScreen(
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
 
+    // MỚI: Khởi tạo SnackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError() // Xóa lỗi sau khi đã hiển thị
+        }
+    }
+
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // MỚI: Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Thêm Đếm Số (Level $level)", fontWeight = FontWeight.Bold) },
@@ -93,7 +106,8 @@ fun AddCountingQuestionScreen(
                         onValueChange = { viewModel.instructionText.value = it },
                         label = { Text("Câu lệnh (VD: Có bao nhiêu quả táo?)") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -105,7 +119,7 @@ fun AddCountingQuestionScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         val currentType = viewModel.objectType.value
-                        val currentEmoji = getEmojiForObject(currentType)
+                        val currentEmoji = getEmojiForObject(currentType) // Hàm tiện ích của bạn
 
                         OutlinedTextField(
                             value = "$currentEmoji  $currentType",
@@ -162,14 +176,18 @@ fun AddCountingQuestionScreen(
                             onValueChange = { viewModel.count.value = it },
                             label = { Text("Số lượng") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // MỚI: Ép nhập số
+                            singleLine = true
                         )
                         OutlinedTextField(
                             value = viewModel.correctAnswer.value,
                             onValueChange = { viewModel.correctAnswer.value = it },
                             label = { Text("Đáp án đúng") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // MỚI: Ép nhập số
+                            singleLine = true
                         )
                     }
 
@@ -181,7 +199,8 @@ fun AddCountingQuestionScreen(
                         label = { Text("Các lựa chọn (cách nhau bởi dấu phẩy)") },
                         placeholder = { Text("VD: 1, 2, 3") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number) // Hỗ trợ dấu phẩy
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
@@ -194,7 +213,7 @@ fun AddCountingQuestionScreen(
                             Icon(Icons.Default.Info, null, tint = colorScheme.primary, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                "Đảm bảo đáp án đúng phải nằm trong danh sách lựa chọn.",
+                                "Số lượng và Đáp án đúng phải bằng nhau. Đáp án phải nằm trong các lựa chọn.",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colorScheme.onSurfaceVariant
                             )
@@ -207,10 +226,14 @@ fun AddCountingQuestionScreen(
 
             // --- Nút hành động ---
             Button(
-                onClick = { viewModel.saveQuestion(categoryId, level, onSavedSuccess) },
+                onClick = {
+                    focusManager.clearFocus() // Ẩn bàn phím trước khi lưu
+                    viewModel.saveQuestion(categoryId, level, onSavedSuccess)
+                },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
-                enabled = !viewModel.isSaving.value
+                // MỚI: Khóa nút nếu form chưa đầy đủ hoặc đang lưu
+                enabled = viewModel.isFormValid() && !viewModel.isSaving.value
             ) {
                 if (viewModel.isSaving.value) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

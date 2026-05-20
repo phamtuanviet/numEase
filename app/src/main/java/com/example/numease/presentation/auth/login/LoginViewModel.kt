@@ -3,9 +3,7 @@ package com.example.numease.presentation.auth.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.gotrue.Auth
-import io.github.jan.supabase.gotrue.auth
 import io.github.jan.supabase.gotrue.providers.Google
 import io.github.jan.supabase.gotrue.providers.builtin.Email
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +33,7 @@ class LoginViewModel @Inject constructor(
     fun loginWithEmail() {
         val currentState = _state.value
         if (currentState.email.isBlank() || currentState.password.isBlank()) {
-            _state.update { it.copy(error = "Vui lòng nhập đầy đủ email và mật khẩu") }
+            _state.update { it.copy(error = "Vui lòng nhập đầy đủ email và mật khẩu.") }
             return
         }
 
@@ -49,11 +47,11 @@ class LoginViewModel @Inject constructor(
                 // Thành công
                 _state.update { it.copy(isLoading = false, isSuccess = true) }
             } catch (e: Exception) {
-                // Thất bại (sai pass, v.v.)
+                // Thất bại -> Gọi hàm phiên dịch lỗi
                 _state.update {
                     it.copy(
                         isLoading = false,
-                        error = "Đăng nhập thất bại: ${e.localizedMessage ?: "Vui lòng kiểm tra lại thông tin"}"
+                        error = translateAuthError(e)
                     )
                 }
             }
@@ -64,12 +62,9 @@ class LoginViewModel @Inject constructor(
     fun loginWithGoogle() {
         viewModelScope.launch {
             try {
-                // Gọi Web Intent của Supabase để đăng nhập Google
                 auth.signInWith(Google)
-                // Lưu ý: signInWith(Google) sẽ bật trình duyệt web lên.
-                // Việc cập nhật trạng thái success sẽ do AuthViewModel tổng (đã viết bài trước) hứng lấy thông qua DeepLink.
             } catch (e: Exception) {
-                _state.update { it.copy(error = "Lỗi Google Auth: ${e.message}") }
+                _state.update { it.copy(error = "Không thể kết nối với Google. Vui lòng thử lại.") }
             }
         }
     }
@@ -83,10 +78,28 @@ class LoginViewModel @Inject constructor(
         _state.update {
             it.copy(
                 error = message,
-                isLoading = false, // Chắc chắn tắt loading
+                isLoading = false,
                 isSuccess = false
             )
         }
     }
 
+    // MỚI: Hàm xóa lỗi sau khi Snackbar đã hiển thị xong
+    fun clearError() {
+        _state.update { it.copy(error = null) }
+    }
+
+    // MỚI: Bộ lọc "phiên dịch" lỗi từ Supabase sang Tiếng Việt thân thiện
+    private fun translateAuthError(exception: Exception): String {
+        val message = exception.message?.lowercase() ?: return "Đã có lỗi xảy ra. Vui lòng thử lại sau."
+
+        return when {
+            message.contains("invalid login credentials") -> "Email hoặc mật khẩu không chính xác."
+            message.contains("email not confirmed") -> "Tài khoản chưa được xác thực. Vui lòng kiểm tra email."
+            message.contains("user not found") -> "Tài khoản này không tồn tại."
+            message.contains("network") || message.contains("host") -> "Lỗi kết nối mạng. Vui lòng kiểm tra Internet."
+            message.contains("rate limit") -> "Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút."
+            else -> "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
+        }
+    }
 }

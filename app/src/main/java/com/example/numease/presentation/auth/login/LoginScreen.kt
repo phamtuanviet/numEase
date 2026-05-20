@@ -28,6 +28,7 @@ import com.example.numease.presentation.viewmodel.AuthViewModel
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.platform.LocalContext
 
+
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel(),
@@ -40,50 +41,55 @@ fun LoginScreen(
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
 
-    // 1. Quản lý Focus để ẩn bàn phím
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
+
+    // MỚI: Khởi tạo SnackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // MỚI: Lắng nghe sự kiện có lỗi để hiển thị Snackbar
+    LaunchedEffect(state.error) {
+        state.error?.let { errorMessage ->
+            snackbarHostState.showSnackbar(
+                message = errorMessage,
+                duration = SnackbarDuration.Short
+            )
+            // Xóa lỗi sau khi đã hiển thị để tránh hiện lại khi recompose
+            viewModel.clearError()
+        }
+    }
 
     // Lắng nghe trạng thái Authenticated
     LaunchedEffect(authState) {
         when (authState) {
             is AuthState.Authenticated -> {
-                // Đăng nhập hợp lệ -> Vào app
                 onNavigateToRouter()
                 viewModel.resetState()
             }
             is AuthState.Banned -> {
-                // TÀI KHOẢN BỊ KHÓA -> Báo lỗi chữ đỏ lên UI
+                // Chuyền lỗi vào state để Snackbar tự động bắt và hiển thị
                 viewModel.setError("Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Quản trị viên.")
-
-                // (Tùy chọn) Rung hoặc hiện thêm Toast cho mạnh mẽ
-                Toast.makeText(context, "Tài khoản bị khóa!", Toast.LENGTH_SHORT).show()
             }
-            is AuthState.Unauthenticated -> {
-                // Nếu logout bình thường thì không làm gì (ở lại màn Login)
-            }
-            is AuthState.Loading -> {
-                // Đang check dữ liệu
-            }
+            is AuthState.Unauthenticated -> { }
+            is AuthState.Loading -> { }
         }
     }
 
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
-            // 2. Xử lý khoảng cách với StatusBar (pin, wifi)
             .statusBarsPadding()
-            // 3. Click ra ngoài thì ẩn bàn phím
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { focusManager.clearFocus() })
-            }
+            },
+        // MỚI: Gắn SnackbarHost vào Scaffold
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(horizontal = 24.dp)
-                // 4. Cho phép vuốt khi nội dung dài hoặc bàn phím hiện lên
                 .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -101,16 +107,9 @@ fun LoginScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // ĐÃ XÓA: Khối hiển thị Text báo lỗi màu đỏ ở đây, thay bằng Snackbar chuyên nghiệp hơn.
 
-            // --- BÁO LỖI ---
-            if (state.error != null) {
-                Text(
-                    text = state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(32.dp))
 
             // --- INPUT FIELDS ---
             OutlinedTextField(
@@ -147,14 +146,13 @@ fun LoginScreen(
             // --- NÚT ĐĂNG NHẬP ---
             Button(
                 onClick = {
-                    focusManager.clearFocus() // Ẩn phím khi bấm nút
+                    focusManager.clearFocus()
                     viewModel.loginWithEmail()
                 },
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 enabled = !state.isLoading
             ) {
                 if (state.isLoading) {
-//                    CircularProgressIndicator(size = 24.dp, color = Color.White)
                     CircularProgressIndicator(color = Color.White)
                 } else {
                     Text("Đăng nhập")

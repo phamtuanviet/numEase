@@ -36,6 +36,18 @@ fun EditComparingQuestionScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val focusManager = LocalFocusManager.current
     val colorScheme = MaterialTheme.colorScheme
+    val comparingColor = Color(0xFFFF9800) // Màu đặc trưng cho So Sánh
+
+    // MỚI: Quản lý thông báo lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
 
     // Load dữ liệu khi vào màn hình
     LaunchedEffect(exerciseId) {
@@ -44,6 +56,7 @@ fun EditComparingQuestionScreen(
 
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Sửa So Sánh", fontWeight = FontWeight.Bold) },
@@ -61,7 +74,7 @@ fun EditComparingQuestionScreen(
     ) { paddingValues ->
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = comparingColor)
             }
         } else {
             Column(
@@ -92,7 +105,8 @@ fun EditComparingQuestionScreen(
                             onValueChange = { viewModel.instructionText.value = it },
                             label = { Text("Câu lệnh (VD: Bé hãy điền dấu thích hợp)") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
                         )
                     }
                 }
@@ -116,7 +130,8 @@ fun EditComparingQuestionScreen(
                                 label = { Text("Số bên TRÁI") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.rightValue.value,
@@ -124,7 +139,8 @@ fun EditComparingQuestionScreen(
                                 label = { Text("Số bên PHẢI") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
                         }
                     }
@@ -150,15 +166,18 @@ fun EditComparingQuestionScreen(
                             operators.forEach { op ->
                                 val isSelected = viewModel.correctAnswer.value == op
                                 OutlinedButton(
-                                    onClick = { viewModel.correctAnswer.value = op },
+                                    onClick = {
+                                        focusManager.clearFocus() // Ẩn bàn phím khi user bấm chọn đáp án
+                                        viewModel.correctAnswer.value = op
+                                    },
                                     modifier = Modifier.weight(1f).height(56.dp),
                                     shape = RoundedCornerShape(12.dp),
                                     colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = if (isSelected) Color(0xFFFF9800) else Color.Transparent,
-                                        contentColor = if (isSelected) Color.White else Color(0xFFFF9800)
+                                        containerColor = if (isSelected) comparingColor else Color.Transparent,
+                                        contentColor = if (isSelected) Color.White else comparingColor
                                     ),
                                     border = ButtonDefaults.outlinedButtonBorder.copy(
-                                        brush = SolidColor(if (isSelected) Color.Transparent else Color(0xFFFF9800))
+                                        brush = SolidColor(if (isSelected) Color.Transparent else comparingColor)
                                     )
                                 ) {
                                     Text(op, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -172,16 +191,20 @@ fun EditComparingQuestionScreen(
 
                 // --- Nút Cập Nhật ---
                 Button(
-                    onClick = { viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess) },
+                    onClick = {
+                        focusManager.clearFocus() // Ẩn bàn phím trước khi lưu
+                        viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF9800)), // Màu đồng bộ với nút dấu
-                    enabled = !viewModel.isSaving.value
+                    colors = ButtonDefaults.buttonColors(containerColor = comparingColor), // Màu đồng bộ với nút dấu
+                    // MỚI: Khóa nút nếu chưa điền đủ hoặc đang lưu
+                    enabled = viewModel.isFormValid() && !viewModel.isSaving.value
                 ) {
                     if (viewModel.isSaving.value) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
                     } else {
-                        Text("Cập nhật câu hỏi", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Cập nhật câu hỏi", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))

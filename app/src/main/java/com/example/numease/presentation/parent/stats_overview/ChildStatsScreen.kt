@@ -1,6 +1,10 @@
 package com.example.numease.presentation.parent.stats_overview
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,11 +22,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.ChildProfile
+import com.example.numease.data.model.StudySession
 import com.example.numease.presentation.parent.manage.RecentStatsBarChart
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +75,7 @@ fun ChildStatsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = androidx.compose.ui.graphics.Color.Transparent
+                    containerColor = Color.Transparent
                 )
             )
         }
@@ -79,7 +93,7 @@ fun ChildStatsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // ==========================================
-                // 1. THANH CHỌN KĨ NĂNG (SCROLLABLE TABS)
+                // 1. THANH CHỌN KĨ NĂNG
                 // ==========================================
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -99,20 +113,15 @@ fun ChildStatsScreen(
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // ==========================================
-                // 2. PROGRESS BAR (SỐ CÂU ĐÚNG / TỔNG SỐ)
+                // 2. PROGRESS BAR (Giữ nguyên text to, trả về màu Primary)
                 // ==========================================
                 val (correct, total) = progressPair
                 val progressRatio = if (total > 0) correct.toFloat() / total.toFloat() else 0f
-                val animatedProgress by animateFloatAsState(
-                    targetValue = progressRatio,
-                    label = "progress"
-                )
+                val animatedProgress by animateFloatAsState(targetValue = progressRatio, label = "progress")
 
                 ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = colorScheme.surface
-                    ),
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                 ) {
@@ -128,21 +137,22 @@ fun ChildStatsScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Thanh ProgressBar
+                        // Thanh ProgressBar màu Primary chuẩn
                         LinearProgressIndicator(
                             progress = { animatedProgress },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(16.dp)
                                 .clip(RoundedCornerShape(8.dp)),
-                            color = colorScheme.primary, // Xanh lá
-                            trackColor = colorScheme.surfaceVariant, // Xám nhạt
+                            color = colorScheme.primary,
+                            trackColor = colorScheme.surfaceVariant,
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
                             text = "$correct / $total câu đúng",
-                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 36.sp, // Chữ to dễ nhìn
                             fontWeight = FontWeight.Black,
                             color = colorScheme.primary
                         )
@@ -151,19 +161,14 @@ fun ChildStatsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-
                 // ==========================================
-                // 3. BIỂU ĐỒ CỘT (10 BÀI GẦN NHẤT) & NÚT CHI TIẾT
+                // 3. BIỂU ĐỒ CỘT (Đã xóa Legend)
                 // ==========================================
                 ElevatedCard(
                     shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.elevatedCardColors(
-                        containerColor = colorScheme.surface
-                    ),
+                    colors = CardDefaults.elevatedCardColors(containerColor = colorScheme.surface),
                     elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                 ) {
                     Column(modifier = Modifier.padding(24.dp)) {
                         Text(
@@ -172,19 +177,15 @@ fun ChildStatsScreen(
                             fontWeight = FontWeight.Bold,
                             color = colorScheme.onSurface
                         )
+
                         Spacer(modifier = Modifier.height(24.dp))
 
                         if (recentSessions.isEmpty()) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp),
+                                modifier = Modifier.fillMaxWidth().height(180.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    text = "Chưa có dữ liệu cho kĩ năng này.",
-                                    color = colorScheme.onSurfaceVariant
-                                )
+                                Text("Chưa có dữ liệu cho kĩ năng này.", color = colorScheme.onSurfaceVariant)
                             }
                         } else {
                             Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
@@ -194,12 +195,9 @@ fun ChildStatsScreen(
 
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Nút xem chi tiết
                         OutlinedButton(
                             onClick = {
-                                currentChild?.id?.let { id ->
-                                    onNavigateToDetailedStats(id, selectedCategoryId)
-                                }
+                                currentChild?.id?.let { id -> onNavigateToDetailedStats(id, selectedCategoryId) }
                             },
                             modifier = Modifier.fillMaxWidth().height(50.dp),
                             shape = RoundedCornerShape(12.dp)
@@ -215,9 +213,7 @@ fun ChildStatsScreen(
                 // 4. CHUYỂN ĐỔI NHANH GIỮA CÁC BÉ
                 // ==========================================
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                 ) {
                     Text(
                         text = "Xem hồ sơ khác",
@@ -227,12 +223,9 @@ fun ChildStatsScreen(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         items(allChildren) { child ->
                             val isSelected = child.id == currentChild?.id
-
                             ChildSwitcherCard(
                                 child = child,
                                 isSelected = isSelected,
@@ -252,12 +245,13 @@ fun ChildStatsScreen(
     }
 }
 
-// Component Thẻ Kĩ năng
+// --- CẬP NHẬT SKILL CHIP ĐỂ NHẬN MÀU ĐỘNG ---
 @Composable
 fun SkillChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    val bgColor = if (isSelected) colorScheme.primary else colorScheme.surface
-    val textColor = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant
+    // Trả về màu Primary chuẩn
+    val bgColor by animateColorAsState(if (isSelected) colorScheme.primary else colorScheme.surface, label = "bg")
+    val textColor by animateColorAsState(if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant, label = "text")
 
     Box(
         modifier = Modifier
@@ -266,7 +260,7 @@ fun SkillChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
             .clickable { onClick() }
             .border(
                 width = 1.dp,
-                color = if (isSelected) androidx.compose.ui.graphics.Color.Transparent else colorScheme.outlineVariant,
+                color = if (isSelected) Color.Transparent else colorScheme.outlineVariant,
                 shape = RoundedCornerShape(20.dp)
             )
             .padding(horizontal = 20.dp, vertical = 10.dp),
@@ -275,8 +269,6 @@ fun SkillChip(name: String, isSelected: Boolean, onClick: () -> Unit) {
         Text(text = name, color = textColor, fontWeight = FontWeight.Bold)
     }
 }
-
-
 @Composable
 fun ChildSwitcherCard(
     child: ChildProfile,
@@ -318,3 +310,4 @@ fun ChildSwitcherCard(
         }
     }
 }
+

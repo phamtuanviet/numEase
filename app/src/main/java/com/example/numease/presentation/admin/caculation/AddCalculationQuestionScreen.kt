@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -19,9 +20,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.admin.content.getCategoryStyling
+import androidx.compose.ui.text.input.KeyboardType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,13 +35,25 @@ fun AddCalculationQuestionScreen(
     onSavedSuccess: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val (icon, categoryColor) = getCategoryStyling(categoryCode)
+    val (icon, categoryColor) = getCategoryStyling(categoryCode) // Hàm tiện ích của bạn
     val operatorSymbol = if (categoryCode == "ADDITION") "+" else "-"
     val formTitle = if (categoryCode == "ADDITION") "Phép Cộng" else "Phép Trừ"
     val focusManager = LocalFocusManager.current
 
+    // MỚI: Khởi tạo SnackbarHostState và lắng nghe lỗi từ ViewModel
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError() // Xóa lỗi sau khi đã hiển thị
+        }
+    }
+
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // MỚI: Thêm SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Thêm $formTitle (Level $level)", fontWeight = FontWeight.Bold) },
@@ -90,7 +103,8 @@ fun AddCalculationQuestionScreen(
                         onValueChange = { viewModel.instructionText.value = it },
                         label = { Text("Câu lệnh (VD: Bé hãy làm phép tính sau)") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
                 }
             }
@@ -125,7 +139,9 @@ fun AddCalculationQuestionScreen(
                             onValueChange = { viewModel.leftValue.value = it },
                             label = { Text("Số thứ 1") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Ép nhập số
+                            singleLine = true
                         )
 
                         Box(
@@ -144,7 +160,9 @@ fun AddCalculationQuestionScreen(
                             onValueChange = { viewModel.rightValue.value = it },
                             label = { Text("Số thứ 2") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Ép nhập số
+                            singleLine = true
                         )
                     }
 
@@ -156,7 +174,8 @@ fun AddCalculationQuestionScreen(
                         label = { Text("Các lựa chọn (cách nhau bởi dấu phẩy)") },
                         placeholder = { Text("VD: 2, 3, 4") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number) // Hỗ trợ nhập số (có phẩy)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
@@ -165,7 +184,9 @@ fun AddCalculationQuestionScreen(
                         onValueChange = { viewModel.correctAnswer.value = it },
                         label = { Text("Đáp án đúng") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Ép nhập số
+                        singleLine = true
                     )
                 }
             }
@@ -174,13 +195,17 @@ fun AddCalculationQuestionScreen(
 
             // --- Nút Hành động ---
             Button(
-                onClick = { viewModel.saveQuestion(categoryId, categoryCode, level, onSavedSuccess) },
+                onClick = {
+                    focusManager.clearFocus() // Thu gọn bàn phím khi bấm lưu
+                    viewModel.saveQuestion(categoryId, categoryCode, level, onSavedSuccess)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = categoryColor),
                 shape = RoundedCornerShape(16.dp),
-                enabled = !viewModel.isSaving.value
+                // MỚI: Khóa nút nếu form chưa điền đầy đủ hoặc đang trong quá trình lưu
+                enabled = viewModel.isFormValid() && !viewModel.isSaving.value
             ) {
                 if (viewModel.isSaving.value) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

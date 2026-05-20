@@ -8,7 +8,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,8 +31,6 @@ val AVAILABLE_OBJECT_TYPES = listOf(
     "orange", "bear", "pencil", "book", "hat", "leaf", "butterfly"
 )
 
-
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditCountingQuestionScreen(
@@ -49,13 +46,24 @@ fun EditCountingQuestionScreen(
     var expanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
 
-    // Load dữ liệu khi vào màn hình
+    // MỚI: Quản lý thông báo lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
+
     LaunchedEffect(exerciseId) {
         viewModel.loadQuestionData(exerciseId)
     }
 
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Sửa Đếm Số", fontWeight = FontWeight.Bold) },
@@ -63,9 +71,8 @@ fun EditCountingQuestionScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
                 actions = {
-                    // Nút xóa câu hỏi
                     IconButton(onClick = { viewModel.deleteQuestion(exerciseId, onSavedSuccess) }) {
-                        Icon(Icons.Default.DeleteSweep, null, tint = colorScheme.error)
+                        Icon(Icons.Default.DeleteSweep, "Xóa câu hỏi", tint = colorScheme.error)
                     }
                 }
             )
@@ -104,12 +111,12 @@ fun EditCountingQuestionScreen(
                             onValueChange = { viewModel.instructionText.value = it },
                             label = { Text("Câu lệnh") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Dropdown chọn vật thể
                         ExposedDropdownMenuBox(
                             expanded = expanded,
                             onExpandedChange = { expanded = !expanded }
@@ -157,7 +164,8 @@ fun EditCountingQuestionScreen(
                                 label = { Text("Số vật thể") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.correctAnswer.value,
@@ -165,7 +173,8 @@ fun EditCountingQuestionScreen(
                                 label = { Text("Đáp án đúng") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
                         }
                     }
@@ -173,7 +182,7 @@ fun EditCountingQuestionScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Khối 3: 3 Ô LỰA CHỌN RIÊNG BIỆT (Yêu cầu mới)
+                // Khối 3: 3 Ô LỰA CHỌN RIÊNG BIỆT
                 OutlinedCard(
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.fillMaxWidth(),
@@ -188,33 +197,33 @@ fun EditCountingQuestionScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            // Ô 1
                             OutlinedTextField(
                                 value = viewModel.option1.value,
                                 onValueChange = { viewModel.option1.value = it },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 1") },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
-                            // Ô 2
                             OutlinedTextField(
                                 value = viewModel.option2.value,
                                 onValueChange = { viewModel.option2.value = it },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 2") },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
-                            // Ô 3
                             OutlinedTextField(
                                 value = viewModel.option3.value,
                                 onValueChange = { viewModel.option3.value = it },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 3") },
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                singleLine = true
                             )
                         }
                     }
@@ -224,10 +233,14 @@ fun EditCountingQuestionScreen(
 
                 // Nút Cập Nhật
                 Button(
-                    onClick = { viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess) },
+                    onClick = {
+                        focusManager.clearFocus()
+                        viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    enabled = !viewModel.isSaving.value
+                    // MỚI: Khóa nút nếu form chưa đầy đủ hoặc đang lưu
+                    enabled = viewModel.isFormValid() && !viewModel.isSaving.value
                 ) {
                     if (viewModel.isSaving.value) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))

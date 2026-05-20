@@ -28,6 +28,12 @@ import com.example.numease.utils.getEmojiForObject
 import com.example.numease.presentation.admin.counting.AVAILABLE_OBJECT_TYPES
 
 
+val AVAILABLE_OBJECT_TYPES = listOf(
+    "apple", "cat", "dog", "star", "candy", "flower", "ball",
+    "car", "banana", "bird", "strawberry", "rabbit", "ice_cream",
+    "orange", "bear", "pencil", "book", "hat", "leaf", "butterfly"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditDragDropQuestionScreen(
@@ -41,9 +47,20 @@ fun EditDragDropQuestionScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val focusManager = LocalFocusManager.current
     val colorScheme = MaterialTheme.colorScheme
-    val dragDropThemeColor = Color(0xFF4CAF50) // Màu xanh lá
+    val dragDropThemeColor = Color(0xFF4CAF50) // Màu xanh lá kéo thả
 
     var expanded by remember { mutableStateOf(false) }
+
+    // MỚI: Quản lý thông báo lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
 
     LaunchedEffect(exerciseId) {
         viewModel.loadQuestionData(exerciseId)
@@ -51,6 +68,7 @@ fun EditDragDropQuestionScreen(
 
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Sửa Kéo Thả Số", fontWeight = FontWeight.Bold) },
@@ -98,7 +116,8 @@ fun EditDragDropQuestionScreen(
                             onValueChange = { viewModel.instructionText.value = it },
                             label = { Text("Câu lệnh (VD: Kéo số đúng vào giỏ)") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -143,7 +162,7 @@ fun EditDragDropQuestionScreen(
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text("Các cặp Số - Giỏ", style = MaterialTheme.typography.titleSmall, color = colorScheme.primary)
                         Text(
-                            "Nhập 3 con số. Hệ thống sẽ tự tạo 3 cục số để kéo và 3 giỏ chứa Emoji tương ứng.",
+                            "Nhập 3 con số (không trùng nhau).",
                             style = MaterialTheme.typography.bodySmall,
                             color = colorScheme.onSurfaceVariant
                         )
@@ -156,7 +175,8 @@ fun EditDragDropQuestionScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 1") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.option2.value,
@@ -164,7 +184,8 @@ fun EditDragDropQuestionScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 2") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.option3.value,
@@ -173,7 +194,8 @@ fun EditDragDropQuestionScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 3") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                singleLine = true
                             )
                         }
                     }
@@ -183,11 +205,15 @@ fun EditDragDropQuestionScreen(
 
                 // --- Nút Cập Nhật ---
                 Button(
-                    onClick = { viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess) },
+                    onClick = {
+                        focusManager.clearFocus() // Ẩn bàn phím trước khi lưu
+                        viewModel.updateQuestion(exerciseId, categoryId, level, onSavedSuccess)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = dragDropThemeColor),
-                    enabled = !viewModel.isSaving.value
+                    // MỚI: Khóa nút nếu chưa nhập thông tin
+                    enabled = viewModel.isFormValid() && !viewModel.isSaving.value
                 ) {
                     if (viewModel.isSaving.value) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

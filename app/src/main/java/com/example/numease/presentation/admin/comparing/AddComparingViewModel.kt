@@ -22,12 +22,10 @@ import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-
-
-// ==========================================
-// 1. VIEWMODEL CHO FORM SO SÁNH
-// ==========================================
 @HiltViewModel
 class AddComparingViewModel @Inject constructor(
     private val postgrest: Postgrest
@@ -39,17 +37,59 @@ class AddComparingViewModel @Inject constructor(
 
     var isSaving = mutableStateOf(false)
 
+    // MỚI: State xử lý lỗi để báo ra UI
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // Kiểm tra xem tất cả các ô đã có chữ hay chưa
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                leftValue.value.isNotBlank() &&
+                rightValue.value.isNotBlank() &&
+                correctAnswer.value.isNotBlank()
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     fun saveQuestion(categoryId: Int, level: Int, onSuccess: () -> Unit) {
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng điền đầy đủ tất cả các trường."
+                return@launch
+            }
+
+            val leftInt = leftValue.value.trim().toIntOrNull()
+            val rightInt = rightValue.value.trim().toIntOrNull()
+
+            if (leftInt == null || rightInt == null) {
+                _errorMessage.value = "Số bên trái và số bên phải phải là chữ số hợp lệ."
+                return@launch
+            }
+
+            // MỚI: Validation thông minh - Kiểm tra xem đáp án chọn có đúng logic toán học không
+            val isMathCorrect = when (correctAnswer.value) {
+                ">" -> leftInt > rightInt
+                "<" -> leftInt < rightInt
+                "=" -> leftInt == rightInt
+                else -> false
+            }
+
+            if (!isMathCorrect) {
+                _errorMessage.value = "Đáp án bạn chọn (${correctAnswer.value}) không đúng với phép toán: $leftInt và $rightInt."
+                return@launch
+            }
+
             isSaving.value = true
             try {
-                // Tự động gán cứng options
+                // Gán cứng options
                 val fixedOptions = listOf(">", "<", "=")
 
                 val newContent = ComparingContent(
-                    instruction = Instruction(text = instructionText.value),
-                    leftValue = leftValue.value.toIntOrNull() ?: 0,
-                    rightValue = rightValue.value.toIntOrNull() ?: 0,
+                    instruction = Instruction(text = instructionText.value.trim()),
+                    leftValue = leftInt,
+                    rightValue = rightInt,
                     options = fixedOptions,
                     correctAnswer = correctAnswer.value
                 )
@@ -64,11 +104,10 @@ class AddComparingViewModel @Inject constructor(
                 postgrest.from("exercises").insert(newExercise)
                 onSuccess()
             } catch (e: Exception) {
-                android.util.Log.e("AddComparing", "Lỗi: ${e.message}")
+                _errorMessage.value = "Lỗi kết nối mạng: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }
         }
     }
 }
-

@@ -44,10 +44,20 @@ fun EditCalculationQuestionScreen(
     val focusManager = LocalFocusManager.current
     val colorScheme = MaterialTheme.colorScheme
 
-    // Lấy giao diện động (Màu sắc và Dấu phép tính)
-    val (_, categoryColor) = getCategoryStyling(categoryCode)
+    val (_, categoryColor) = getCategoryStyling(categoryCode) // Hàm của bạn
     val operatorSymbol = if (categoryCode == "ADDITION") "+" else "-"
     val formTitle = if (categoryCode == "ADDITION") "Phép Cộng" else "Phép Trừ"
+
+    // MỚI: Quản lý thông báo lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
 
     LaunchedEffect(exerciseId) {
         viewModel.loadQuestionData(exerciseId)
@@ -55,6 +65,7 @@ fun EditCalculationQuestionScreen(
 
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Sửa $formTitle", fontWeight = FontWeight.Bold) },
@@ -101,7 +112,8 @@ fun EditCalculationQuestionScreen(
                             onValueChange = { viewModel.instructionText.value = it },
                             label = { Text("Câu lệnh (VD: Bé hãy làm phép tính sau)") },
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            singleLine = true
                         )
                     }
                 }
@@ -118,7 +130,6 @@ fun EditCalculationQuestionScreen(
                         Text("Dữ liệu phép tính", style = MaterialTheme.typography.titleSmall, color = colorScheme.primary)
                         Spacer(modifier = Modifier.height(24.dp))
 
-                        // Giao diện nhập số trực quan với dấu ở giữa
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -130,10 +141,10 @@ fun EditCalculationQuestionScreen(
                                 label = { Text("Số thứ 1") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
 
-                            // Vòng tròn chứa dấu + hoặc -
                             Box(
                                 modifier = Modifier
                                     .padding(horizontal = 12.dp)
@@ -151,7 +162,8 @@ fun EditCalculationQuestionScreen(
                                 label = { Text("Số thứ 2") },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true
                             )
                         }
 
@@ -163,7 +175,8 @@ fun EditCalculationQuestionScreen(
                             label = { Text("Đáp án đúng") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true
                         )
                     }
                 }
@@ -187,7 +200,8 @@ fun EditCalculationQuestionScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 1") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.option2.value,
@@ -195,7 +209,8 @@ fun EditCalculationQuestionScreen(
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 2") },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
+                                singleLine = true
                             )
                             OutlinedTextField(
                                 value = viewModel.option3.value,
@@ -204,7 +219,8 @@ fun EditCalculationQuestionScreen(
                                 shape = RoundedCornerShape(12.dp),
                                 placeholder = { Text("Số 3") },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                                singleLine = true
                             )
                         }
                     }
@@ -214,11 +230,15 @@ fun EditCalculationQuestionScreen(
 
                 // --- Nút Cập Nhật ---
                 Button(
-                    onClick = { viewModel.updateQuestion(exerciseId, categoryId, categoryCode,level, onSavedSuccess) },
+                    onClick = {
+                        focusManager.clearFocus()
+                        viewModel.updateQuestion(exerciseId, categoryId, categoryCode, level, onSavedSuccess)
+                    },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = categoryColor),
-                    enabled = !viewModel.isSaving.value
+                    // MỚI: Khóa nút nếu chưa đủ thông tin hoặc đang lưu
+                    enabled = viewModel.isFormValid() && !viewModel.isSaving.value
                 ) {
                     if (viewModel.isSaving.value) {
                         CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

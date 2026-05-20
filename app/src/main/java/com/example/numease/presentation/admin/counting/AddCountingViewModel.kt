@@ -9,57 +9,104 @@ import com.example.numease.data.model.Instruction
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.postgrest.Postgrest
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 import javax.inject.Inject
-import io.github.jan.supabase.postgrest.query.Columns
+import android.util.Log
+import kotlinx.coroutines.flow.StateFlow
+import java.util.UUID
+
 
 @HiltViewModel
 class AddCountingViewModel @Inject constructor(
     private val postgrest: Postgrest
 ) : ViewModel() {
 
-    // Khai báo các trạng thái cho Form
+    // Khai báo các trạng thái cho Form (Xóa giá trị mặc định để Admin phải tự nhập)
     var instructionText = mutableStateOf("")
     var objectType = mutableStateOf("apple")
-    var count = mutableStateOf("1")
-    var optionsText = mutableStateOf("1,2,3") // Bắt Admin nhập cách nhau bằng dấu phẩy
-    var correctAnswer = mutableStateOf("1")
+    var count = mutableStateOf("")
+    var optionsText = mutableStateOf("")
+    var correctAnswer = mutableStateOf("")
 
     var isSaving = mutableStateOf(false)
 
+    // MỚI: State xử lý lỗi
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // MỚI: Kiểm tra các trường đã được điền chưa
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                count.value.isNotBlank() &&
+                optionsText.value.isNotBlank() &&
+                correctAnswer.value.isNotBlank()
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     fun saveQuestion(categoryId: Int, level: Int, onSuccess: () -> Unit) {
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng điền đầy đủ tất cả các trường."
+                return@launch
+            }
+
+            // Ép kiểu & Kiểm tra dữ liệu
+            val countInt = count.value.trim().toIntOrNull()
+            val correctInt = correctAnswer.value.trim().toIntOrNull()
+
+            if (countInt == null || correctInt == null) {
+                _errorMessage.value = "Số lượng và Đáp án đúng phải là chữ số hợp lệ."
+                return@launch
+            }
+
+            // Đối với bài đếm, số lượng vật thể vẽ ra màn hình CHÍNH LÀ đáp án đúng
+            if (countInt != correctInt) {
+                _errorMessage.value = "Số lượng vật thể ($countInt) phải bằng với Đáp án đúng ($correctInt)."
+                return@launch
+            }
+
+            val parsedOptions = optionsText.value.split(",")
+                .mapNotNull { it.trim().toIntOrNull() }
+
+            if (parsedOptions.size < 2) {
+                _errorMessage.value = "Vui lòng nhập ít nhất 2 lựa chọn (cách nhau bởi dấu phẩy)."
+                return@launch
+            }
+
+            if (!parsedOptions.contains(correctInt)) {
+                _errorMessage.value = "Đáp án đúng ($correctInt) phải nằm trong danh sách các lựa chọn (${parsedOptions.joinToString(", ")})."
+                return@launch
+            }
+
             isSaving.value = true
             try {
-                // 1. Parse chuỗi optionsText (VD: "1, 2, 3") thành List<Int>
-                val parsedOptions = optionsText.value.split(",")
-                    .mapNotNull { it.trim().toIntOrNull() }
-
-                // 2. TẠO JSON ĐỘNG thông qua Data Class CountingContent
+                // TẠO JSON ĐỘNG
                 val newContent = CountingContent(
-                    instruction = Instruction(text = instructionText.value),
+                    instruction = Instruction(text = instructionText.value.trim()),
                     objectType = objectType.value,
-                    count = count.value.toIntOrNull() ?: 1,
+                    count = countInt,
                     options = parsedOptions,
-                    correctAnswer = correctAnswer.value.toIntOrNull() ?: 1
+                    correctAnswer = correctInt
                 )
 
-                // 3. Đóng gói vào Exercise (Tự tạo UUID mới)
+                // Đóng gói vào Exercise
                 val newExercise = Exercise(
-                    id = java.util.UUID.randomUUID().toString(),
+                    id = UUID.randomUUID().toString(),
                     categoryId = categoryId,
                     level = level,
                     content = newContent
                 )
 
-                // 4. Bắn lên Supabase
+                // Bắn lên Supabase
                 postgrest.from("exercises").insert(newExercise)
 
                 onSuccess()
             } catch (e: Exception) {
-                android.util.Log.e("AddCounting", "Lỗi: ${e.message}")
+                Log.e("AddCounting", "Lỗi: ${e.message}")
+                _errorMessage.value = "Lỗi kết nối mạng: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }

@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.StateFlow
+
 
 @HiltViewModel
 class EditCalculationViewModel @Inject constructor(
@@ -34,6 +36,23 @@ class EditCalculationViewModel @Inject constructor(
     val isLoading = _isLoading.asStateFlow()
 
     var isSaving = mutableStateOf(false)
+
+    // MỚI: State xử lý lỗi
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // MỚI: Kiểm tra form có trống không
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                leftValue.value.isNotBlank() &&
+                rightValue.value.isNotBlank() &&
+                correctAnswer.value.isNotBlank() &&
+                (option1.value.isNotBlank() || option2.value.isNotBlank() || option3.value.isNotBlank())
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
 
     // 1. TẢI DỮ LIỆU TỪ SUPABASE
     fun loadQuestionData(exerciseId: String) {
@@ -58,6 +77,7 @@ class EditCalculationViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 Log.e("EditCalculation", "Lỗi tải dữ liệu: ${e.message}")
+                _errorMessage.value = "Không thể tải câu hỏi."
             } finally {
                 _isLoading.value = false
             }
@@ -69,20 +89,43 @@ class EditCalculationViewModel @Inject constructor(
         if (isSaving.value) return
 
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng điền đầy đủ các trường bắt buộc."
+                return@launch
+            }
+
+            // Ép kiểu & Validation
+            val leftInt = leftValue.value.trim().toIntOrNull()
+            val rightInt = rightValue.value.trim().toIntOrNull()
+            val correctInt = correctAnswer.value.trim().toIntOrNull()
+
+            if (leftInt == null || rightInt == null || correctInt == null) {
+                _errorMessage.value = "Dữ liệu tính toán phải là chữ số hợp lệ."
+                return@launch
+            }
+
+            val parsedOptions = listOf(option1.value, option2.value, option3.value)
+                .mapNotNull { it.trim().toIntOrNull() }
+
+            if (parsedOptions.size < 2) {
+                _errorMessage.value = "Vui lòng nhập ít nhất 2 lựa chọn đáp án."
+                return@launch
+            }
+
+            if (!parsedOptions.contains(correctInt)) {
+                _errorMessage.value = "Đáp án đúng ($correctInt) phải nằm trong các lựa chọn (${parsedOptions.joinToString(", ")})."
+                return@launch
+            }
+
             isSaving.value = true
             try {
-
                 val operator = if (categoryCode == "ADDITION") "+" else "-"
-                // Parse 3 ô chữ thành List<Int>
-                val parsedOptions = listOf(option1.value, option2.value, option3.value)
-                    .mapNotNull { it.trim().toIntOrNull() }
-
 
                 val updatedContent = CalculationContent(
-                    instruction = Instruction(text = instructionText.value),
-                    leftValue = leftValue.value.toIntOrNull() ?: 0,
-                    rightValue = rightValue.value.toIntOrNull() ?: 0,
-                    correctAnswer = correctAnswer.value.toIntOrNull() ?: 0,
+                    instruction = Instruction(text = instructionText.value.trim()),
+                    leftValue = leftInt,
+                    rightValue = rightInt,
+                    correctAnswer = correctInt,
                     options = parsedOptions,
                     operator = operator,
                 )
@@ -102,6 +145,7 @@ class EditCalculationViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditCalculation", "Lỗi cập nhật: ${e.message}")
+                _errorMessage.value = "Lỗi khi cập nhật: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }
@@ -117,6 +161,7 @@ class EditCalculationViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditCalculation", "Lỗi xoá: ${e.message}")
+                _errorMessage.value = "Không thể xóa câu hỏi."
             }
         }
     }

@@ -10,9 +10,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -22,8 +24,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -36,6 +36,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.data.model.ChildProfile
 import com.example.numease.data.model.StudySession
@@ -53,27 +54,35 @@ fun ManageChildrenScreen(
 
     val colorScheme = MaterialTheme.colorScheme
 
-    // PagerState: Số lượng trang = Số bé + 1 (Trang cuối cùng để Thêm Bé)
-    val pageCount = children.size + 1
+    // 💡 GIẢI QUYẾT MINOR: Bỏ thẻ "Thêm bé" khỏi Pager, số trang chỉ bằng đúng số lượng bé
+    val pageCount = children.size
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
     // Lắng nghe sự kiện lướt Pager. Khi currentPage thay đổi -> Tải lại thống kê
     LaunchedEffect(pagerState.currentPage, children) {
-        if (pagerState.currentPage < children.size) {
+        if (children.isNotEmpty() && pagerState.currentPage < children.size) {
             viewModel.loadStatsForChild(children[pagerState.currentPage].id)
         } else {
-            viewModel.loadStatsForChild(null) // Đang ở thẻ "Thêm bé" thì xóa biểu đồ
+            viewModel.loadStatsForChild(null)
         }
     }
 
     if (showFormDialog) {
-        Dialog(onDismissRequest = { viewModel.closeForm() }) {
+        // 💡 GIẢI QUYẾT CRITICAL: Thêm cấu hình để Dialog tương thích với bàn phím (IME)
+        Dialog(
+            onDismissRequest = { viewModel.closeForm() },
+            properties = DialogProperties(
+                decorFitsSystemWindows = false, // Cho phép nội dung di chuyển khi bàn phím đẩy lên
+                usePlatformDefaultWidth = false
+            )
+        ) {
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = colorScheme.surface,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 24.dp)
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+                    .imePadding() // Quan trọng: Đẩy nội dung lên tránh bàn phím
             ) {
                 ChildFormContent(viewModel = viewModel)
             }
@@ -81,7 +90,7 @@ fun ManageChildrenScreen(
     }
 
     Scaffold(
-        containerColor = colorScheme.background, // Tự động nền sáng/tối
+        containerColor = colorScheme.background,
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Quản lý Hồ sơ", fontWeight = FontWeight.Bold) },
@@ -94,6 +103,16 @@ fun ManageChildrenScreen(
                     containerColor = Color.Transparent
                 )
             )
+        },
+        // 💡 GIẢI QUYẾT MINOR: Nút "Thêm hồ sơ" được chuyển thành FAB nổi bật
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { viewModel.openForm(null) },
+                containerColor = colorScheme.primary,
+                contentColor = colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Thêm hồ sơ")
+            }
         }
     ) { paddingValues ->
         Column(
@@ -107,45 +126,56 @@ fun ManageChildrenScreen(
             // ==========================================
             // 1. KHU VỰC THẺ LƯỚT NGANG (HORIZONTAL PAGER)
             // ==========================================
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 48.dp),
-                pageSpacing = 16.dp
-            ) { page ->
-                if (page < children.size) {
+            if (children.isEmpty()) {
+                // Xử lý khi chưa có hồ sơ nào
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Chưa có hồ sơ. Hãy bấm nút + để thêm!",
+                        color = colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = 48.dp),
+                    pageSpacing = 16.dp
+                ) { page ->
                     val child = children[page]
                     ChildProfileCard(
                         child = child,
                         onEditClicked = { viewModel.openForm(child) }
                     )
-                } else {
-                    AddChildCard(onClick = { viewModel.openForm(null) })
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // ==========================================
-            // 2. CHẤM TRÒN PHÂN TRANG (PAGINATION DOTS)
-            // ==========================================
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                repeat(pageCount) { index ->
-                    val isSelected = pagerState.currentPage == index
-                    val width by animateFloatAsState(if (isSelected) 24f else 8f, label = "dot_width")
-                    // Màu chấm động theo Theme
-                    val dotColor = if (isSelected) colorScheme.primary else colorScheme.outlineVariant
+                // ==========================================
+                // 2. CHẤM TRÒN PHÂN TRANG (PAGINATION DOTS)
+                // ==========================================
+                if (pageCount > 1) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        repeat(pageCount) { index ->
+                            val isSelected = pagerState.currentPage == index
+                            val width by animateFloatAsState(if (isSelected) 24f else 8f, label = "dot_width")
+                            val dotColor = if (isSelected) colorScheme.primary else colorScheme.outlineVariant
 
-                    Box(
-                        modifier = Modifier
-                            .padding(horizontal = 4.dp)
-                            .height(8.dp)
-                            .width(width.dp)
-                            .background(dotColor, CircleShape)
-                    )
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 4.dp)
+                                    .height(8.dp)
+                                    .width(width.dp)
+                                    .background(dotColor, CircleShape)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -154,7 +184,7 @@ fun ManageChildrenScreen(
             // ==========================================
             // 3. KHU VỰC BIỂU ĐỒ THỐNG KÊ BÊN DƯỚI
             // ==========================================
-            if (pagerState.currentPage < children.size) {
+            if (children.isNotEmpty() && pagerState.currentPage < children.size) {
                 val currentChildId = children[pagerState.currentPage].id
 
                 ElevatedCard(
@@ -210,7 +240,6 @@ fun ManageChildrenScreen(
 fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
 
-    // Ánh xạ giới tính vào hệ màu Container của Theme
     val (avatar, containerColor, contentColor) = when (child.gender?.uppercase()) {
         "MALE" -> Triple("👦", colorScheme.secondaryContainer, colorScheme.onSecondaryContainer)
         "FEMALE" -> Triple("👧", colorScheme.tertiaryContainer, colorScheme.onTertiaryContainer)
@@ -219,16 +248,13 @@ fun ChildProfileCard(child: ChildProfile, onEditClicked: () -> Unit) {
 
     ElevatedCard(
         shape = RoundedCornerShape(32.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = containerColor
-        ),
+        colors = CardDefaults.elevatedCardColors(containerColor = containerColor),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 6.dp),
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Nút sửa thông tin ở góc trên phải
             IconButton(
                 onClick = onEditClicked,
                 modifier = Modifier
@@ -307,6 +333,8 @@ fun AddChildCard(onClick: () -> Unit) {
         }
     }
 }
+
+
 
 @Composable
 fun RecentStatsBarChart(sessions: List<StudySession>) {
@@ -442,7 +470,9 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
     val isLoading by viewModel.isFormLoading.collectAsState()
 
     Column(
-        modifier = Modifier.padding(24.dp),
+        modifier = Modifier
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()), // 💡 GIẢI QUYẾT CRITICAL: Cho phép cuộn form
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -462,12 +492,19 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
         )
         Spacer(modifier = Modifier.height(24.dp))
 
+        // 💡 GIẢI QUYẾT MAJOR: Tùy chỉnh màu sắc để TextField nổi bật (có màu nền + viền)
         OutlinedTextField(
             value = name,
             onValueChange = { viewModel.formName.value = it },
             label = { Text("Tên của bé") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                focusedContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                unfocusedBorderColor = colorScheme.outline,
+                focusedBorderColor = colorScheme.primary
+            )
         )
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -487,13 +524,20 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
         }
         Spacer(modifier = Modifier.height(16.dp))
 
+        // 💡 GIẢI QUYẾT MAJOR: Tương tự với ô nhập Tuổi
         OutlinedTextField(
             value = age,
             onValueChange = { if (it.all { char -> char.isDigit() }) viewModel.formAge.value = it },
             label = { Text("Tuổi của bé") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                focusedContainerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                unfocusedBorderColor = colorScheme.outline,
+                focusedBorderColor = colorScheme.primary
+            )
         )
         Spacer(modifier = Modifier.height(32.dp))
 
@@ -519,7 +563,6 @@ fun ChildFormContent(viewModel: ManageChildrenViewModel) {
         }
     }
 }
-
 @Composable
 fun GenderOptionCard(
     label: String,

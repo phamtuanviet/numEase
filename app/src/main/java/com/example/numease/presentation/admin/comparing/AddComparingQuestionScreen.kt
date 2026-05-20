@@ -18,6 +18,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +35,20 @@ fun AddComparingQuestionScreen(
     val comparingColor = Color(0xFFFF9800) // Màu cam đặc trưng của chuyên đề so sánh
     val focusManager = LocalFocusManager.current
 
+    // MỚI: Khởi tạo SnackbarHostState
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError() // Xóa lỗi sau khi đã hiển thị
+        }
+    }
+
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // MỚI: Thêm SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Thêm So Sánh (Level $level)", fontWeight = FontWeight.Bold) },
@@ -57,7 +72,6 @@ fun AddComparingQuestionScreen(
                         focusManager.clearFocus() // Ẩn bàn phím và bỏ focus
                     })
                 },
-
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -84,7 +98,8 @@ fun AddComparingQuestionScreen(
                         onValueChange = { viewModel.instructionText.value = it },
                         label = { Text("Bé hãy điền dấu thích hợp") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
                 }
             }
@@ -118,14 +133,18 @@ fun AddComparingQuestionScreen(
                             onValueChange = { viewModel.leftValue.value = it },
                             label = { Text("Số bên TRÁI") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // MỚI: Ép nhập số
+                            singleLine = true
                         )
                         OutlinedTextField(
                             value = viewModel.rightValue.value,
                             onValueChange = { viewModel.rightValue.value = it },
                             label = { Text("Số bên PHẢI") },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // MỚI: Ép nhập số
+                            singleLine = true
                         )
                     }
 
@@ -147,7 +166,10 @@ fun AddComparingQuestionScreen(
                         operators.forEach { op ->
                             val isSelected = viewModel.correctAnswer.value == op
                             Button(
-                                onClick = { viewModel.correctAnswer.value = op },
+                                onClick = {
+                                    focusManager.clearFocus() // MỚI: Ẩn bàn phím khi user bấm chọn đáp án
+                                    viewModel.correctAnswer.value = op
+                                },
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(60.dp),
@@ -171,13 +193,17 @@ fun AddComparingQuestionScreen(
 
             // --- Nút Lưu ---
             Button(
-                onClick = { viewModel.saveQuestion(categoryId, level, onSavedSuccess) },
+                onClick = {
+                    focusManager.clearFocus() // Ẩn bàn phím trước khi bấm lưu
+                    viewModel.saveQuestion(categoryId, level, onSavedSuccess)
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = comparingColor),
                 shape = RoundedCornerShape(16.dp),
-                enabled = !viewModel.isSaving.value
+                // MỚI: Khóa nút nếu chưa điền đủ hoặc đang lưu
+                enabled = viewModel.isFormValid() && !viewModel.isSaving.value
             ) {
                 if (viewModel.isSaving.value) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

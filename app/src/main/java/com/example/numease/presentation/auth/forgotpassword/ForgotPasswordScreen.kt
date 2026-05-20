@@ -16,6 +16,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,7 +29,20 @@ fun ForgotPasswordScreen(
     onNavigateBack: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
+    val focusManager = LocalFocusManager.current
 
+    // Khởi tạo SnackbarHostState để hiển thị lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Lắng nghe trạng thái lỗi
+    LaunchedEffect(state.error) {
+        state.error?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError() // Xóa lỗi sau khi hiển thị
+        }
+    }
+
+    // Lắng nghe trạng thái thành công
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
             onEmailSentSuccess(state.email)
@@ -34,6 +51,7 @@ fun ForgotPasswordScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             TopAppBar(
                 title = { Text("") },
@@ -43,6 +61,10 @@ fun ForgotPasswordScreen(
                     }
                 }
             )
+        },
+        // Chạm ra ngoài để ẩn bàn phím
+        modifier = Modifier.pointerInput(Unit) {
+            detectTapGestures(onTap = { focusManager.clearFocus() })
         }
     ) { paddingValues ->
         Column(
@@ -69,15 +91,7 @@ fun ForgotPasswordScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            if (state.error != null) {
-                Text(
-                    text = state.error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-            }
+            Spacer(modifier = Modifier.height(40.dp))
 
             OutlinedTextField(
                 value = state.email,
@@ -92,7 +106,10 @@ fun ForgotPasswordScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             Button(
-                onClick = { viewModel.sendRecoveryEmail() },
+                onClick = {
+                    focusManager.clearFocus() // Ẩn bàn phím khi bấm Gửi
+                    viewModel.sendRecoveryEmail()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
@@ -105,7 +122,7 @@ fun ForgotPasswordScreen(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Gửi mã xác nhận", fontSize = 16.sp)
+                    Text("Gửi yêu cầu", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

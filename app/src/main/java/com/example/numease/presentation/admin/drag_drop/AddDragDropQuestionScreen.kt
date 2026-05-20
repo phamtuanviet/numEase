@@ -17,10 +17,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.numease.presentation.admin.counting.AVAILABLE_OBJECT_TYPES
 import com.example.numease.utils.getEmojiForObject
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,12 +36,22 @@ fun AddDragDropQuestionScreen(
     var expanded by remember { mutableStateOf(false) }
     val colorScheme = MaterialTheme.colorScheme
     val focusManager = LocalFocusManager.current
-
-    // Màu tím đặc trưng của chuyên đề Kéo Thả
     val dragDropPrimaryColor = Color(0xFF9C27B0)
+
+    // MỚI: Quản lý thông báo lỗi
+    val snackbarHostState = remember { SnackbarHostState() }
+    val errorMessage by viewModel.errorMessage.collectAsState()
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearError()
+        }
+    }
 
     Scaffold(
         containerColor = colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }, // Gắn SnackbarHost
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Thêm Kéo Thả (Level $level)", fontWeight = FontWeight.Bold) },
@@ -61,9 +73,7 @@ fun AddDragDropQuestionScreen(
                 .padding(horizontal = 24.dp)
                 .verticalScroll(rememberScrollState())
                 .pointerInput(Unit) {
-                    detectTapGestures(onTap = {
-                        focusManager.clearFocus() // Ẩn bàn phím và bỏ focus
-                    })
+                    detectTapGestures(onTap = { focusManager.clearFocus() })
                 },
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -93,12 +103,12 @@ fun AddDragDropQuestionScreen(
                         label = { Text("Câu lệnh hiển thị cho trẻ") },
                         placeholder = { Text("VD: Kéo đúng số vào giỏ") },
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Dropdown chọn Icon (Sử dụng hệ thống MD3 chuẩn)
                     ExposedDropdownMenuBox(
                         expanded = expanded,
                         onExpandedChange = { expanded = !expanded },
@@ -114,9 +124,7 @@ fun AddDragDropQuestionScreen(
                             label = { Text("Icon cho Giỏ hứng") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
-                            modifier = Modifier
-                                .menuAnchor()
-                                .fillMaxWidth(),
+                            modifier = Modifier.menuAnchor().fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
 
@@ -168,29 +176,19 @@ fun AddDragDropQuestionScreen(
                         placeholder = { Text("VD: 2, 3, 5") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        supportingText = {
-                            Text("Nhập các số cách nhau bằng dấu phẩy")
-                        }
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), // Hỗ trợ nhập số phẩy
+                        supportingText = { Text("Nhập các số không trùng lặp (2 đến 5 số)") }
                     )
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Tip hướng dẫn Admin
                     Surface(
                         color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier.padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = null,
-                                tint = colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Info, null, tint = colorScheme.primary, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = "Hệ thống sẽ tự tạo Giỏ hứng tương ứng với số lượng vật thể bạn nhập.",
@@ -206,13 +204,14 @@ fun AddDragDropQuestionScreen(
 
             // --- Nút Lưu ---
             Button(
-                onClick = { viewModel.saveQuestion(categoryId, level, onSavedSuccess) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                onClick = {
+                    focusManager.clearFocus()
+                    viewModel.saveQuestion(categoryId, level, onSavedSuccess)
+                },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = dragDropPrimaryColor),
                 shape = RoundedCornerShape(16.dp),
-                enabled = !viewModel.isSaving.value && viewModel.numbersText.value.isNotBlank()
+                enabled = viewModel.isFormValid() && !viewModel.isSaving.value
             ) {
                 if (viewModel.isSaving.value) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)

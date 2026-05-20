@@ -13,10 +13,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlinx.coroutines.flow.StateFlow
 
 @HiltViewModel
 class EditCountingViewModel @Inject constructor(
-    private val postgrest: Postgrest // Tiêm trực tiếp Supabase client
+    private val postgrest: Postgrest
 ) : ViewModel() {
 
     // Khai báo các trạng thái cho Form
@@ -25,7 +26,7 @@ class EditCountingViewModel @Inject constructor(
     var count = mutableStateOf("")
     var correctAnswer = mutableStateOf("")
 
-    // 3 Ô lựa chọn riêng biệt (UI nhập chuỗi, lát parse sang Int)
+    // 3 Ô lựa chọn riêng biệt
     var option1 = mutableStateOf("")
     var option2 = mutableStateOf("")
     var option3 = mutableStateOf("")
@@ -35,12 +36,27 @@ class EditCountingViewModel @Inject constructor(
 
     var isSaving = mutableStateOf(false)
 
+    // MỚI: State xử lý lỗi
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage
+
+    // Kiểm tra form có bị trống không
+    fun isFormValid(): Boolean {
+        return instructionText.value.isNotBlank() &&
+                count.value.isNotBlank() &&
+                correctAnswer.value.isNotBlank() &&
+                (option1.value.isNotBlank() || option2.value.isNotBlank() || option3.value.isNotBlank())
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
+    }
+
     // 1. TẢI DỮ LIỆU CŨ TỪ SUPABASE
     fun loadQuestionData(exerciseId: String) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // Query trực tiếp từ Supabase bằng ID
                 val exercise = postgrest.from("exercises")
                     .select { filter { eq("id", exerciseId) } }
                     .decodeSingle<Exercise>()
@@ -52,13 +68,13 @@ class EditCountingViewModel @Inject constructor(
                     count.value = content.count.toString()
                     correctAnswer.value = content.correctAnswer.toString()
 
-                    // Chia mảng List<Int> thành 3 ô UI (Chuyển sang String để hiển thị ở TextField)
                     option1.value = content.options.getOrNull(0)?.toString() ?: ""
                     option2.value = content.options.getOrNull(1)?.toString() ?: ""
                     option3.value = content.options.getOrNull(2)?.toString() ?: ""
                 }
             } catch (e: Exception) {
                 Log.e("EditCounting", "Lỗi tải dữ liệu: ${e.message}")
+                _errorMessage.value = "Không thể tải dữ liệu câu hỏi."
             } finally {
                 _isLoading.value = false
             }
@@ -70,22 +86,48 @@ class EditCountingViewModel @Inject constructor(
         if (isSaving.value) return
 
         viewModelScope.launch {
+            if (!isFormValid()) {
+                _errorMessage.value = "Vui lòng điền đầy đủ các trường bắt buộc."
+                return@launch
+            }
+
+            val countInt = count.value.trim().toIntOrNull()
+            val correctInt = correctAnswer.value.trim().toIntOrNull()
+
+            if (countInt == null || correctInt == null) {
+                _errorMessage.value = "Số lượng và Đáp án đúng phải là chữ số hợp lệ."
+                return@launch
+            }
+
+            // Validation thông minh: Số lượng đếm phải bằng Đáp án đúng
+            if (countInt != correctInt) {
+                _errorMessage.value = "Số lượng vật thể ($countInt) phải bằng với Đáp án đúng ($correctInt)."
+                return@launch
+            }
+
+            val parsedOptions = listOf(option1.value, option2.value, option3.value)
+                .mapNotNull { it.trim().toIntOrNull() }
+
+            if (parsedOptions.size < 2) {
+                _errorMessage.value = "Vui lòng nhập ít nhất 2 lựa chọn đáp án."
+                return@launch
+            }
+
+            if (!parsedOptions.contains(correctInt)) {
+                _errorMessage.value = "Đáp án đúng ($correctInt) phải nằm trong danh sách các lựa chọn (${parsedOptions.joinToString(", ")})."
+                return@launch
+            }
+
             isSaving.value = true
             try {
-                // 1. Parse 3 ô chữ thành List<Int> (Bỏ qua ô trống hoặc sai định dạng)
-                val parsedOptions = listOf(option1.value, option2.value, option3.value)
-                    .mapNotNull { it.trim().toIntOrNull() }
-
-                // 2. Tạo JSON động
                 val updatedContent = CountingContent(
-                    instruction = Instruction(text = instructionText.value),
+                    instruction = Instruction(text = instructionText.value.trim()),
                     objectType = objectType.value,
-                    count = count.value.toIntOrNull() ?: 1,
-                    options = parsedOptions, // Gắn List<Int> vào đây
-                    correctAnswer = correctAnswer.value.toIntOrNull() ?: 1
+                    count = countInt,
+                    options = parsedOptions,
+                    correctAnswer = correctInt
                 )
 
-                // 3. Đóng gói vào Exercise (Giữ nguyên ID cũ)
                 val updatedExercise = Exercise(
                     id = exerciseId,
                     categoryId = categoryId,
@@ -93,7 +135,6 @@ class EditCountingViewModel @Inject constructor(
                     content = updatedContent
                 )
 
-                // 4. Bắn lệnh Update lên Supabase theo ID
                 postgrest.from("exercises")
                     .update(updatedExercise) {
                         filter { eq("id", exerciseId) }
@@ -102,6 +143,7 @@ class EditCountingViewModel @Inject constructor(
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditCounting", "Lỗi cập nhật: ${e.message}")
+                _errorMessage.value = "Lỗi khi cập nhật: ${e.localizedMessage}"
             } finally {
                 isSaving.value = false
             }
@@ -112,14 +154,12 @@ class EditCountingViewModel @Inject constructor(
     fun deleteQuestion(exerciseId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
-                // Xoá trực tiếp dòng có ID tương ứng
                 postgrest.from("exercises")
-                    .delete {
-                        filter { eq("id", exerciseId) }
-                    }
+                    .delete { filter { eq("id", exerciseId) } }
                 onSuccess()
             } catch (e: Exception) {
                 Log.e("EditCounting", "Lỗi xoá: ${e.message}")
+                _errorMessage.value = "Không thể xóa câu hỏi."
             }
         }
     }

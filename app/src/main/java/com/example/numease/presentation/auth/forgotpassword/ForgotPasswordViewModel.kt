@@ -27,9 +27,9 @@ class ForgotPasswordViewModel @Inject constructor(
     }
 
     fun sendRecoveryEmail() {
-        val email = _state.value.email
+        val email = _state.value.email.trim()
         if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            _state.update { it.copy(error = "Vui lòng nhập một địa chỉ email hợp lệ") }
+            _state.update { it.copy(error = "Vui lòng nhập một địa chỉ email hợp lệ.") }
             return
         }
 
@@ -39,21 +39,38 @@ class ForgotPasswordViewModel @Inject constructor(
                 // Yêu cầu Supabase gửi email khôi phục
                 auth.resetPasswordForEmail(email)
 
-                // Thành công
+                // Thành công: Chỉ chuyển khi không có Exception văng ra
                 _state.update { it.copy(isLoading = false, isSuccess = true) }
             } catch (e: Exception) {
-                // Thất bại (VD: Lỗi mạng)
+                // Thất bại: Email không tồn tại, quá giới hạn, hoặc lỗi mạng
                 _state.update {
                     it.copy(
                         isLoading = false,
-                        error = "Không thể gửi yêu cầu: ${e.message ?: "Lỗi không xác định"}"
+                        error = translateAuthError(e)
                     )
                 }
             }
         }
     }
 
+    fun clearError() {
+        _state.update { it.copy(error = null) }
+    }
+
     fun resetState() {
         _state.value = ForgotPasswordState()
+    }
+
+    // "Phiên dịch" lỗi từ Supabase sang Tiếng Việt
+    private fun translateAuthError(exception: Exception): String {
+        val message =
+            exception.message?.lowercase() ?: return "Đã có lỗi xảy ra. Vui lòng thử lại sau."
+
+        return when {
+            message.contains("user not found") -> "Email này chưa được đăng ký trong hệ thống."
+            message.contains("rate limit") -> "Bạn thao tác quá nhiều lần, vui lòng thử lại sau vài phút."
+            message.contains("network") || message.contains("host") -> "Lỗi kết nối mạng. Vui lòng kiểm tra Internet."
+            else -> "Không thể gửi yêu cầu: Khớp email thất bại."
+        }
     }
 }
